@@ -26,7 +26,7 @@ for port,binds in pb.items():
         a+=["-p",(ip+":" if ip else "")+b["HostPort"]+":"+port]
 if h.get("NetworkMode") and h["NetworkMode"] not in ("default","bridge"): a+=["--network",h["NetworkMode"]]
 for cap in h.get("CapAdd") or []: a+=["--cap-add",cap]
-a.append(cfg["Image"])
+a.append(c["Image"])
 print(" ".join(shlex.quote(x) for x in a))
 ')
 echo "new run: docker run $ARGS" | sed -E 's/(-e [A-Z_]*(PASS|SECRET|KEY|TOKEN)[A-Z_]*=)[^ ]*/\1***/g'
