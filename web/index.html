@@ -349,6 +349,8 @@ kbd{display:inline-block;min-width:24px;text-align:center;padding:2px 7px;border
 @media (hover:hover) and (min-width:821px){.msgs li:focus-within:not(:hover) .quick{display:none}.msgs li:has(:focus-visible) .quick{display:flex}}
 @media (max-width:820px){.msgs .pick{top:16px}.replybar{gap:8px}.replybar .btn.pill{padding:9px 10px;font-size:15px;gap:6px}}
 @media (prefers-reduced-motion:reduce){.msgs .row{transition:none!important}}
+.apps-slot{margin-left:auto;flex:none}
+@media (max-width:820px){.apps-slot{margin-left:0}}
 </style>
 </head>
 <body>
@@ -391,6 +393,7 @@ kbd{display:inline-block;min-width:24px;text-align:center;padding:2px 7px;border
       <label class="sr" for="q">Search in mail</label><input id="q" type="search" placeholder="Search in mail" autocomplete="off">
       <button type="button" class="avatar me-btn" id="meBtn" aria-label="Your account" aria-haspopup="true" aria-expanded="false"></button>
     </form>
+    <span data-chausima-apps class="apps-slot"></span>
     <div class="menu-pop" id="mePop" hidden>
       <div class="me-who"><span class="avatar big" id="meBig"></span><b id="meAddr"></b></div>
       <button class="pop-item" id="themeBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="themeLabel">Dark mode</span></button>
@@ -1232,5 +1235,6 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").cat
   showSignin();
 })();
 </script>
+<script src="https://chausima.com/apps.js?v=1" defer></script>
 </body>
 </html>
