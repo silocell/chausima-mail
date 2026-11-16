@@ -1,0 +1,368 @@
+From 85faab239997aa9c7ca7788a0c95f2a71070b434 Mon Sep 17 00:00:00 2001
+From: Shiv <noreply@anthropic.com>
+Date: Sun, 15 Nov 2026 16:55:45 +0000
+Subject: [PATCH] Chausima Mail branding for the admin WebUI (AGPL-3.0
+ modification)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NWPUz6WZh9tBXEFV5Fys8s
+---
+ index.html                                    |   2 +-
+ public/favicon.ico                            | Bin 15406 -> 15086 bytes
+ public/logo.svg                               |   2 +-
+ public/oauth-client.json                      |  21 +++++++++++++-----
+ src/components/bootstrap/BootstrapWizard.tsx  |   2 +-
+ src/components/common/Logo.tsx                |  20 ++++++++---------
+ src/components/forms/widgets/OtpAuthField.tsx |   2 +-
+ src/components/layout/TopBar.tsx              |   2 +-
+ src/hooks/useDocumentTitle.ts                 |   2 +-
+ src/i18n/en.json                              |   8 +++----
+ 10 files changed, 35 insertions(+), 26 deletions(-)
+
+diff --git a/index.html b/index.html
+index 5d7acc9..c56175b 100644
+--- a/index.html
++++ b/index.html
+@@ -8,7 +8,7 @@
+   <meta name="oauth-scopes" content="" />
+   <link rel="icon" type="image/x-icon" href="favicon.ico" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+-  <title>Portal</title>
++  <title>Chausima Mail Admin</title>
+ </head>
+ 
+ <body>
+diff --git a/public/favicon.ico b/public/favicon.ico
+index 22e759eceef2c80541ae89540d3f94556747a7b4..3630630e58e51dd45f0f8e5eb8e483b7fe3d1e33 100644
+GIT binary patch
+literal 15086
+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
+D7|fXl
+
+literal 15406
+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
+
+diff --git a/public/logo.svg b/public/logo.svg
+index de7244a..b627fdc 100644
+--- a/public/logo.svg
++++ b/public/logo.svg
+@@ -1 +1 @@
+-<svg xmlns="http://www.w3.org/2000/svg" viewBox="98.5 77.55 96.4 96.4" width="96" height="96"><path fill="#db2d54" d="M149.1 84.7h-4.8l-44.8 25.9v8.3l44.8 25.9h4.8l44.8-25.9v-8.3l-44.8-25.9zm32.9 30h-35.3V94.4l35.3 20.3zm-35.3 20.4-35.3-20.4 27-15.6v20.2l6.3 3.6h22.9l-20.9 12.2zM99.5 129.9v11l44.8 25.9h4.8l44.8-25.9v-11l-47.2 27.3zM187.3 166.8l6.6-3.8v-11l-25.7 14.8zM99.5 163l6.6 3.8h19.1L99.5 152z"/></svg>
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 64" width="330" height="64" role="img" aria-label="Chausima Mail"><g fill="none" stroke="#c8312b" stroke-width="5"><circle cx="32" cy="32" r="27"/><path d="M18 25h28v15H18z" stroke-width="4"/><path d="M18 25l14 10 14-10" stroke-width="4"/></g><text x="72" y="43" font-family="Atkinson Hyperlegible,Segoe UI,Arial,sans-serif" font-size="30" font-weight="700" fill="#c8312b">Chausima Mail</text></svg>
+diff --git a/public/oauth-client.json b/public/oauth-client.json
+index d0b6c45..171475a 100644
+--- a/public/oauth-client.json
++++ b/public/oauth-client.json
+@@ -1,10 +1,19 @@
+ {
+-  "client_name": "Stalwart Web Interface",
+-  "client_uri": "https://stalw.art",
++  "client_name": "Chausima Mail Admin",
++  "client_uri": "https://mail.chausima.com",
+   "logo_uri": "logo.svg",
+-  "redirect_uris": ["oauth/callback"],
+-  "post_logout_redirect_uris": ["login"],
++  "redirect_uris": [
++    "oauth/callback"
++  ],
++  "post_logout_redirect_uris": [
++    "login"
++  ],
+   "token_endpoint_auth_method": "none",
+-  "grant_types": ["authorization_code", "refresh_token"],
+-  "response_types": ["code"]
++  "grant_types": [
++    "authorization_code",
++    "refresh_token"
++  ],
++  "response_types": [
++    "code"
++  ]
+ }
+diff --git a/src/components/bootstrap/BootstrapWizard.tsx b/src/components/bootstrap/BootstrapWizard.tsx
+index 08154ed..cd21a4f 100644
+--- a/src/components/bootstrap/BootstrapWizard.tsx
++++ b/src/components/bootstrap/BootstrapWizard.tsx
+@@ -276,7 +276,7 @@ export function BootstrapWizard() {
+       <div className="space-y-3.5">
+         <div className="flex flex-wrap items-end justify-between gap-4 px-1 pb-2 pt-3">
+           <div>
+-            <h1 className="page-title">{t('bootstrap.welcome', 'Welcome to Stalwart')}</h1>
++            <h1 className="page-title">{t('bootstrap.welcome', 'Welcome to Chausima Mail')}</h1>
+             <p className="mt-1.5 text-sm text-muted-foreground">
+               {t('bootstrap.welcomeSubtitle', "Let's get your server set up.")}
+             </p>
+diff --git a/src/components/common/Logo.tsx b/src/components/common/Logo.tsx
+index 128b0c3..cbb2b7f 100644
+--- a/src/components/common/Logo.tsx
++++ b/src/components/common/Logo.tsx
+@@ -13,18 +13,18 @@ export function DefaultLogo() {
+   return (
+     <svg
+       xmlns="http://www.w3.org/2000/svg"
+-      viewBox="95 84 500 90"
+-      aria-label={t('logo.stalwartAlt', 'Stalwart Logo')}
++      viewBox="0 0 330 64"
++      aria-label={t('logo.stalwartAlt', 'Chausima Mail')}
+       className="h-7 w-auto max-w-[320px]"
+     >
+-      <path
+-        className="fill-current"
+-        d="M227.8 143.6c.3 4.2 2.1 7.6 5.1 10.1 3.1 2.5 7.1 3.8 12.1 3.8 4.3 0 7.9-.9 10.5-2.8 2.7-1.9 4-4.5 4-7.8 0-2.4-.7-4.3-2.2-5.7-1.5-1.4-3.4-2.5-6-3.2-2.5-.7-6-1.5-10.6-2.3-4.6-.8-8.6-1.9-11.9-3.2-3.3-1.3-6-3.3-8.1-6.1-2.1-2.7-3.1-6.3-3.1-10.7 0-4.1 1.1-7.7 3.2-10.9s5.1-5.7 9-7.4c3.8-1.8 8.2-2.6 13.2-2.6 5.1 0 9.6 1 13.7 2.9 4 1.9 7.2 4.5 9.5 7.8s3.6 7.1 3.8 11.4h-11.5c-.4-3.7-2-6.6-4.8-8.9-2.8-2.2-6.3-3.4-10.6-3.4-4.1 0-7.5.9-9.9 2.7-2.5 1.8-3.7 4.3-3.7 7.6 0 2.3.7 4.1 2.2 5.5 1.5 1.4 3.4 2.4 5.9 3.1 2.4.7 5.9 1.4 10.5 2.2 4.6.8 8.6 1.9 11.9 3.3 3.3 1.4 6 3.4 8.2 6 2.1 2.6 3.2 6.1 3.2 10.5 0 4.2-1.1 8-3.4 11.3-2.2 3.3-5.4 5.9-9.4 7.8-4 1.9-8.6 2.8-13.7 2.8-5.6 0-10.6-1-14.9-3.1-4.3-2-7.6-4.9-10-8.5-2.4-3.6-3.7-7.8-3.7-12.5l11.5.3zM278.5 102.1l11-2.1v14.6h12.6v9.7h-12.6v27.2c0 2 .4 3.5 1.2 4.3.8.9 2.2 1.3 4.2 1.3h8.4v9.7h-10.6c-5 0-8.6-1.2-10.8-3.5-2.2-2.3-3.4-5.9-3.4-10.7v-50.5zM356.8 114.6v52.2h-9.7l-1.2-7.9c-1.8 2.6-4.2 4.7-7 6.2-2.9 1.6-6.2 2.3-10 2.3-4.8 0-9-1.1-12.7-3.2-3.7-2.1-6.7-5.2-8.8-9.3-2.1-4-3.2-8.8-3.2-14.2 0-5.3 1.1-10 3.2-14s5.1-7.2 8.8-9.4c3.7-2.2 7.9-3.3 12.6-3.3 3.9 0 7.2.7 10.1 2.2 2.9 1.5 5.2 3.5 6.9 6.1l1.3-7.6h9.7zm-15.1 38.7c2.8-3.2 4.2-7.3 4.2-12.4 0-5.2-1.4-9.4-4.2-12.6-2.8-3.3-6.5-4.9-11-4.9-4.6 0-8.2 1.6-11 4.8-2.8 3.2-4.2 7.4-4.2 12.5 0 5.2 1.4 9.4 4.2 12.6 2.8 3.2 6.5 4.8 11 4.8s8.2-1.6 11-4.8zM365.5 97.5l11-2.1v71.3h-11V97.5zM380.3 114.6h11.6l11.9 39.9 11.9-39.9h10.1l11.4 39.9 12.3-39.9h11.2l-17.3 52.2h-11.8l-11-35.5-11.4 35.5-11.9.1-17-52.3zM513.7 114.6v52.2H504l-1.2-7.9c-1.8 2.6-4.2 4.7-7 6.2-2.9 1.6-6.2 2.3-10 2.3-4.8 0-9-1.1-12.7-3.2-3.7-2.1-6.7-5.2-8.8-9.3-2.1-4-3.2-8.8-3.2-14.2 0-5.3 1.1-10 3.2-14s5.1-7.2 8.8-9.4c3.7-2.2 7.9-3.3 12.6-3.3 3.9 0 7.2.7 10.1 2.2 2.9 1.5 5.2 3.5 6.9 6.1l1.3-7.6h9.7zm-15.1 38.7c2.8-3.2 4.2-7.3 4.2-12.4 0-5.2-1.4-9.4-4.2-12.6-2.8-3.3-6.5-4.9-11-4.9-4.6 0-8.2 1.6-11 4.8-2.8 3.2-4.2 7.4-4.2 12.5 0 5.2 1.4 9.4 4.2 12.6 2.8 3.2 6.5 4.8 11 4.8 4.6 0 8.2-1.6 11-4.8zM551.3 114.6v10.3h-4.9c-4.6 0-7.8 1.5-9.9 4.4-2 3-3.1 6.7-3.1 11.3v26.2h-11v-52.2h9.8l1.2 7.8c1.5-2.4 3.4-4.4 5.8-5.8 2.4-1.4 5.6-2.1 9.6-2.1h2.5zM556.3 102.1l11-2.1v14.6h12.6v9.7h-12.6v27.2c0 2 .4 3.5 1.2 4.3.8.9 2.2 1.3 4.2 1.3h8.4v9.7h-10.6c-5 0-8.6-1.2-10.8-3.5s-3.4-5.9-3.4-10.7v-50.5z"
+-      />
+-      <path
+-        fill="#db2d54"
+-        d="M149.1 84.7h-4.8l-44.8 25.9v8.3l44.8 25.9h4.8l44.8-25.9v-8.3l-44.8-25.9zm32.9 30h-35.3V94.4l35.3 20.3zm-35.3 20.4-35.3-20.4 27-15.6v20.2l6.3 3.6h22.9l-20.9 12.2zM99.5 129.9v11l44.8 25.9h4.8l44.8-25.9v-11l-47.2 27.3zM187.3 166.8l6.6-3.8v-11l-25.7 14.8zM99.5 163l6.6 3.8h19.1L99.5 152z"
+-      />
++      <g fill="none" stroke="#c8312b" strokeWidth="5">
++        <circle cx="32" cy="32" r="27" />
++        <path d="M18 25h28v15H18z" strokeWidth="4" />
++        <path d="M18 25l14 10 14-10" strokeWidth="4" />
++      </g>
++      <text x="72" y="43" className="fill-current" fontSize="30" fontWeight="700" fontFamily="inherit">
++        Chausima Mail
++      </text>
+     </svg>
+   );
+ }
+diff --git a/src/components/forms/widgets/OtpAuthField.tsx b/src/components/forms/widgets/OtpAuthField.tsx
+index 05fe202..64953e5 100644
+--- a/src/components/forms/widgets/OtpAuthField.tsx
++++ b/src/components/forms/widgets/OtpAuthField.tsx
+@@ -33,7 +33,7 @@ function buildOtpAuthUrl(totp: OTPAuth.TOTP): string {
+ 
+ function generateTotp(): { totp: OTPAuth.TOTP; url: string } {
+   const totp = new OTPAuth.TOTP({
+-    issuer: 'Stalwart',
++    issuer: 'Chausima Mail',
+     label: 'account',
+     algorithm: 'SHA1',
+     digits: 6,
+diff --git a/src/components/layout/TopBar.tsx b/src/components/layout/TopBar.tsx
+index 5663756..05171b3 100644
+--- a/src/components/layout/TopBar.tsx
++++ b/src/components/layout/TopBar.tsx
+@@ -83,7 +83,7 @@ export function TopBar() {
+           </Link>
+         </TooltipTrigger>
+         <TooltipContent side="bottom">
+-          {t('version.label', 'Stalwart WebUI v{{version}}', { version: __APP_VERSION__ })}
++          {t('version.label', 'Chausima Mail Admin, built on Stalwart WebUI v{{version}}', { version: __APP_VERSION__ })}
+         </TooltipContent>
+       </Tooltip>
+ 
+diff --git a/src/hooks/useDocumentTitle.ts b/src/hooks/useDocumentTitle.ts
+index 3a8255b..efcf2d8 100644
+--- a/src/hooks/useDocumentTitle.ts
++++ b/src/hooks/useDocumentTitle.ts
+@@ -6,7 +6,7 @@
+ 
+ import { useEffect } from 'react';
+ 
+-const APP_NAME = 'Stalwart WebUI';
++const APP_NAME = 'Chausima Mail Admin';
+ 
+ export function useDocumentTitle(title?: string | null) {
+   useEffect(() => {
+diff --git a/src/i18n/en.json b/src/i18n/en.json
+index ae936d8..ebbcb5b 100644
+--- a/src/i18n/en.json
++++ b/src/i18n/en.json
+@@ -15,7 +15,7 @@
+   },
+   "bootstrap": {
+     "complete": "Setup complete",
+-    "configuredSuccessfully": "Stalwart has been configured successfully.",
++    "configuredSuccessfully": "Chausima Mail has been configured successfully.",
+     "credentialsCreated": "Your administrator account has been created. Write these down now: the password will not be shown again.",
+     "emptyForm": "Setup form is empty. The server did not return any bootstrap fields.",
+     "failedToComplete": "Failed to complete setup.",
+@@ -27,7 +27,7 @@
+     "nextStepLabel": "Next step:",
+     "noConfirm": "The server did not confirm the update.",
+     "stepOf": "Step {{current}} of {{total}}",
+-    "welcome": "Welcome to Stalwart",
++    "welcome": "Welcome to Chausima Mail",
+     "welcomeSubtitle": "Let's get your server set up."
+   },
+   "common": {
+@@ -374,11 +374,11 @@
+   },
+   "logo": {
+     "alt": "Logo",
+-    "stalwartAlt": "Stalwart Logo"
++    "stalwartAlt": "Chausima Mail"
+   },
+   "logout": "Logout",
+   "version": {
+-    "label": "Stalwart WebUI v{{version}}"
++    "label": "Chausima Mail Admin, built on Stalwart WebUI v{{version}}"
+   },
+   "oauth": {
+     "backToLogin": "Back to login",
+-- 
+2.43.0
+

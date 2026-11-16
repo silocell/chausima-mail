@@ -1,0 +1,9 @@
+plugins { id "com.android.application" }
+android {
+  namespace "com.chausima.mail"
+  compileSdk 35
+  defaultConfig { applicationId "com.chausima.mail"; minSdk 24; targetSdk 35; versionCode 2; versionName "1.0.1" }
+  signingConfigs { release { storeFile file(System.getenv("CM_KEYSTORE") ?: "none"); storePassword System.getenv("CM_KS_PASS"); keyAlias "chausima"; keyPassword System.getenv("CM_KS_PASS") } }
+  buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}

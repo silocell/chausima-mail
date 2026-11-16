@@ -1,0 +1,41 @@
+{
+  "name": "chausima-mail",
+  "productName": "Chausima Mail",
+  "version": "1.0.1",
+  "description": "Chausima Mail desktop app",
+  "author": "HWL Systems",
+  "homepage": "https://mail.chausima.com",
+  "license": "MIT",
+  "main": "main.js",
+  "build": {
+    "appId": "com.chausima.mail",
+    "productName": "Chausima Mail",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      "main.js",
+      "build/icon.png"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Network",
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": [
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "identity": null
+    },
+    "publish": null
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}
