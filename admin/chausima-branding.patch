@@ -1,24 +1,3 @@
-From 85faab239997aa9c7ca7788a0c95f2a71070b434 Mon Sep 17 00:00:00 2001
-From: Shiv <noreply@anthropic.com>
-Date: Sun, 15 Nov 2026 16:55:45 +0000
-Subject: [PATCH] Chausima Mail branding for the admin WebUI (AGPL-3.0
- modification)
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01NWPUz6WZh9tBXEFV5Fys8s
----
- index.html                                    |   2 +-
- public/favicon.ico                            | Bin 15406 -> 15086 bytes
- public/logo.svg                               |   2 +-
- public/oauth-client.json                      |  21 +++++++++++++-----
- src/components/bootstrap/BootstrapWizard.tsx  |   2 +-
- src/components/common/Logo.tsx                |  20 ++++++++---------
- src/components/forms/widgets/OtpAuthField.tsx |   2 +-
- src/components/layout/TopBar.tsx              |   2 +-
- src/hooks/useDocumentTitle.ts                 |   2 +-
- src/i18n/en.json                              |   8 +++----
- 10 files changed, 35 insertions(+), 26 deletions(-)
-
 diff --git a/index.html b/index.html
 index 5d7acc9..c56175b 100644
 --- a/index.html
@@ -33,178 +12,8 @@ index 5d7acc9..c56175b 100644
  
  <body>
 diff --git a/public/favicon.ico b/public/favicon.ico
-index 22e759eceef2c80541ae89540d3f94556747a7b4..3630630e58e51dd45f0f8e5eb8e483b7fe3d1e33 100644
-GIT binary patch
-literal 15086
-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
-D7|fXl
-
-literal 15406
-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
-
+index 22e759e..3630630 100644
+Binary files a/public/favicon.ico and b/public/favicon.ico differ
 diff --git a/public/logo.svg b/public/logo.svg
 index de7244a..b627fdc 100644
 --- a/public/logo.svg
@@ -301,11 +110,220 @@ index 05fe202..64953e5 100644
      label: 'account',
      algorithm: 'SHA1',
      digits: 6,
+diff --git a/src/components/layout/SecurityAlerts.tsx b/src/components/layout/SecurityAlerts.tsx
+new file mode 100644
+index 0000000..02210f7
+--- /dev/null
++++ b/src/components/layout/SecurityAlerts.tsx
+@@ -0,0 +1,195 @@
++/*
++ * SPDX-FileCopyrightText: 2026 Chausima Mail
++ *
++ * SPDX-License-Identifier: AGPL-3.0-only
++ *
++ * Chausima Mail addition: a bell in the top bar that tells the admin when the
++ * server bans an IP address. It reads the same Blocked IPs list shown under
++ * Settings > Security > Blocked IPs, checks it every minute, and pops a toast
++ * for each new ban. Admins who cannot read that list never see the bell.
++ */
++
++import { useCallback, useEffect, useRef, useState } from 'react';
++import { useNavigate } from 'react-router-dom';
++import { Bell, ShieldAlert } from 'lucide-react';
++import { Button } from '@/components/ui/button';
++import {
++  DropdownMenu,
++  DropdownMenuContent,
++  DropdownMenuItem,
++  DropdownMenuLabel,
++  DropdownMenuSeparator,
++  DropdownMenuTrigger,
++} from '@/components/ui/dropdown-menu';
++import { toast } from '@/hooks/use-toast';
++import { jmapQueryAndGet, type JmapObject } from '@/services/jmap/client';
++
++const OBJECT = 'x:BlockedIp';
++const POLL_MS = 60_000;
++const SEEN_KEY = 'chausima.bans.seen';
++const LIST_PATH = '/Settings/x:BlockedIp';
++
++interface Ban {
++  id: string;
++  ip: string;
++  reason: string;
++  created: number;
++}
++
++function firstString(v: unknown): string {
++  if (typeof v === 'string') return v;
++  if (Array.isArray(v)) return v.filter((x) => typeof x === 'string').join(', ');
++  if (v && typeof v === 'object') {
++    const o = v as Record<string, unknown>;
++    return firstString(o.address ?? o.ip ?? o.value ?? o.name ?? '');
++  }
++  return '';
++}
++
++function pick(obj: JmapObject, test: (key: string) => boolean): unknown {
++  const key = Object.keys(obj).find((k) => test(k.toLowerCase()));
++  return key ? obj[key] : undefined;
++}
++
++function toBan(obj: JmapObject): Ban {
++  const ip = firstString(pick(obj, (k) => k === 'address' || k === 'addresses' || k === 'ip' || k.includes('address')));
++  const reason = firstString(pick(obj, (k) => k.includes('reason') || k === 'description'));
++  const createdRaw = pick(obj, (k) => k.startsWith('created'));
++  const created = typeof createdRaw === 'string' ? Date.parse(createdRaw) : typeof createdRaw === 'number' ? createdRaw : 0;
++  return { id: String(obj.id), ip: ip || String(obj.id), reason, created: Number.isFinite(created) ? created : 0 };
++}
++
++function readSeen(): number | null {
++  try {
++    const v = localStorage.getItem(SEEN_KEY);
++    return v === null ? null : Number(v);
++  } catch {
++    return null;
++  }
++}
++
++function writeSeen(t: number) {
++  try {
++    localStorage.setItem(SEEN_KEY, String(t));
++  } catch {
++    /* storage unavailable: alerts still work for this visit */
++  }
++}
++
++function when(t: number): string {
++  if (!t) return '';
++  const mins = Math.round((Date.now() - t) / 60_000);
++  if (mins < 1) return 'just now';
++  if (mins < 60) return `${mins} min ago`;
++  const hrs = Math.round(mins / 60);
++  if (hrs < 24) return `${hrs} h ago`;
++  return new Date(t).toLocaleDateString();
++}
++
++export function SecurityAlerts() {
++  const navigate = useNavigate();
++  const [bans, setBans] = useState<Ban[] | null>(null);
++  const [seen, setSeen] = useState<number | null>(() => readSeen());
++  const [available, setAvailable] = useState(true);
++  const toasted = useRef<Set<string>>(new Set());
++  const firstLoad = useRef(true);
++
++  const load = useCallback(async (signal?: AbortSignal) => {
++    try {
++      const { list } = await jmapQueryAndGet(OBJECT, { limit: 200 }, undefined, { signal });
++      const next = list.map(toBan).sort((a, b) => b.created - a.created);
++      setBans(next);
++      setAvailable(true);
++
++      let base = readSeen();
++      if (base === null) {
++        // First time on this browser: treat existing bans as already seen.
++        base = next[0]?.created ?? Date.now();
++        writeSeen(base);
++        setSeen(base);
++      }
++      const fresh = next.filter((b) => b.created > base! && !toasted.current.has(b.id));
++      fresh.forEach((b) => toasted.current.add(b.id));
++      if (!firstLoad.current || fresh.length <= 3) {
++        fresh.slice(0, 3).forEach((b) =>
++          toast({
++            title: `IP banned: ${b.ip}`,
++            description: b.reason || 'Blocked automatically by the server.',
++            variant: 'destructive',
++          }),
++        );
++      }
++      if (firstLoad.current && fresh.length > 3) {
++        toast({ title: `${fresh.length} new IP bans`, description: 'Open the bell to see them.', variant: 'destructive' });
++      }
++      firstLoad.current = false;
++    } catch (err) {
++      if ((err as { name?: string })?.name === 'AbortError') return;
++      setAvailable(false);
++    }
++  }, []);
++
++  useEffect(() => {
++    const ctrl = new AbortController();
++    const first = setTimeout(() => void load(ctrl.signal), 0);
++    const timer = setInterval(() => void load(), POLL_MS);
++    const onFocus = () => void load();
++    window.addEventListener('focus', onFocus);
++    return () => {
++      ctrl.abort();
++      clearTimeout(first);
++      clearInterval(timer);
++      window.removeEventListener('focus', onFocus);
++    };
++  }, [load]);
++
++  if (!available || bans === null) return null;
++
++  const unseen = bans.filter((b) => seen !== null && b.created > seen);
++  const markSeen = () => {
++    const latest = bans[0]?.created ?? Date.now();
++    writeSeen(latest);
++    setSeen(latest);
++  };
++
++  return (
++    <DropdownMenu onOpenChange={(open) => !open && unseen.length > 0 && markSeen()}>
++      <DropdownMenuTrigger asChild>
++        <Button
++          variant="ghost"
++          size="icon"
++          className="relative"
++          aria-label={unseen.length ? `${unseen.length} new IP bans` : 'IP bans'}
++        >
++          <Bell aria-hidden="true" className="h-4 w-4" />
++          {unseen.length > 0 && (
++            <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground">
++              {unseen.length > 9 ? '9+' : unseen.length}
++            </span>
++          )}
++        </Button>
++      </DropdownMenuTrigger>
++      <DropdownMenuContent align="end" className="w-80">
++        <DropdownMenuLabel>{unseen.length ? `${unseen.length} new IP ban${unseen.length > 1 ? 's' : ''}` : 'IP bans'}</DropdownMenuLabel>
++        <DropdownMenuSeparator />
++        {bans.length === 0 && <p className="px-2 py-3 text-sm text-muted-foreground">No banned addresses.</p>}
++        {bans.slice(0, 8).map((b) => (
++          <DropdownMenuItem key={b.id} className="items-start gap-2.5" onSelect={() => navigate(`${LIST_PATH}/${b.id}`)}>
++            <ShieldAlert
++              aria-hidden="true"
++              className={`mt-0.5 h-4 w-4 shrink-0 ${seen !== null && b.created > seen ? 'text-destructive' : 'text-muted-foreground'}`}
++            />
++            <span className="min-w-0 flex-1">
++              <span className="block truncate font-medium">{b.ip}</span>
++              <span className="block truncate text-xs text-muted-foreground">
++                {[b.reason, when(b.created)].filter(Boolean).join(' · ')}
++              </span>
++            </span>
++          </DropdownMenuItem>
++        ))}
++        <DropdownMenuSeparator />
++        <DropdownMenuItem onSelect={() => navigate(LIST_PATH)}>Manage blocked IPs</DropdownMenuItem>
++      </DropdownMenuContent>
++    </DropdownMenu>
++  );
++}
 diff --git a/src/components/layout/TopBar.tsx b/src/components/layout/TopBar.tsx
-index 5663756..05171b3 100644
+index 5663756..b965c69 100644
 --- a/src/components/layout/TopBar.tsx
 +++ b/src/components/layout/TopBar.tsx
-@@ -83,7 +83,7 @@ export function TopBar() {
+@@ -31,6 +31,7 @@ import { useEffect, useState } from 'react';
+ import { useIsCommunity } from '@/hooks/usePermissions';
+ import { SIDEBAR_ID } from './sidebarContext';
+ import { useLayoutNavigation } from './useLayoutNavigation';
++import { SecurityAlerts } from './SecurityAlerts';
+ 
+ const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+ 
+@@ -83,7 +84,7 @@ export function TopBar() {
            </Link>
          </TooltipTrigger>
          <TooltipContent side="bottom">
@@ -314,6 +332,15 @@ index 5663756..05171b3 100644
          </TooltipContent>
        </Tooltip>
  
+@@ -119,6 +120,8 @@ export function TopBar() {
+ 
+         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+ 
++        <SecurityAlerts />
++
+         <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={t('toggleTheme', 'Toggle theme')}>
+           {theme === 'light' ? (
+             <Moon aria-hidden="true" className="h-4 w-4" />
 diff --git a/src/hooks/useDocumentTitle.ts b/src/hooks/useDocumentTitle.ts
 index 3a8255b..efcf2d8 100644
 --- a/src/hooks/useDocumentTitle.ts
@@ -363,6 +390,3 @@ index ae936d8..ebbcb5b 100644
    },
    "oauth": {
      "backToLogin": "Back to login",
--- 
-2.43.0
-
