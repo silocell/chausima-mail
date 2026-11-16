@@ -30,6 +30,7 @@ a.append(cfg["Image"])
 print(" ".join(shlex.quote(x) for x in a))
 ')
 echo "new run: docker run $ARGS" | sed -E 's/(-e [A-Z_]*(PASS|SECRET|KEY|TOKEN)[A-Z_]*=)[^ ]*/\1***/g'
+[ "$1" = dry ] && { echo "cmd: $(docker inspect -f '{{json .Config.Cmd}} {{json .Config.Entrypoint}}' stalwart) image-cmd: $(docker image inspect -f '{{json .Config.Cmd}} {{json .Config.Entrypoint}}' $(docker inspect -f '{{.Config.Image}}' stalwart))"; exit 0; }
 docker stop stalwart >/dev/null && docker rename stalwart stalwart-prev
 if eval docker run $ARGS >/dev/null; then
   docker network connect --ip 172.30.0.10 chausima-net stalwart
