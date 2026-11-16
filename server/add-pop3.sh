@@ -48,4 +48,9 @@ else
   docker rm -f stalwart >/dev/null 2>&1 || true
   docker rename stalwart-prev stalwart && docker start stalwart >/dev/null && echo "old container restored"
 fi
-command -v firewall-cmd >/dev/null && { firewall-cmd -q --add-port=995/tcp --permanent 2>/dev/null; firewall-cmd -q --reload; echo "firewalld: 995 open"; } || true
+# Never "firewall-cmd --reload" on this server: on 16 Nov 2026 a reload cut off
+# all networking (SSH included) until a reboot. Add ports with --permanent AND
+# without --permanent (runtime) instead.
+if command -v firewall-cmd >/dev/null && ! firewall-cmd -q --query-port=995/tcp; then
+  firewall-cmd -q --add-port=995/tcp; firewall-cmd -q --add-port=995/tcp --permanent; echo "firewalld: 995 open"
+fi
