@@ -53,10 +53,16 @@ function pick(obj: JmapObject, test: (key: string) => boolean): unknown {
 
 function toBan(obj: JmapObject): Ban {
   const ip = firstString(pick(obj, (k) => k === 'address' || k === 'addresses' || k === 'ip' || k.includes('address')));
-  const reason = firstString(pick(obj, (k) => k.includes('reason') || k === 'description'));
+  const reason = humanize(firstString(pick(obj, (k) => k.includes('reason') || k === 'description')));
   const createdRaw = pick(obj, (k) => k.startsWith('created'));
   const created = typeof createdRaw === 'string' ? Date.parse(createdRaw) : typeof createdRaw === 'number' ? createdRaw : 0;
   return { id: String(obj.id), ip: ip || String(obj.id), reason, created: Number.isFinite(created) ? created : 0 };
+}
+
+function humanize(s: string): string {
+  if (!s || /\s/.test(s)) return s;
+  const words = s.replace(/[_-]+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function readSeen(): number | null {
