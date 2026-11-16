@@ -16,10 +16,20 @@ emptied, except emails whose log hasn't been delivered yet. Then a note is put
 in the Inbox for the AI that answers info@, saying when the wash happened and
 where older mail is, and a "weekly wash done" line goes to the log address.
 
+Help desk: before an Inbox email is deleted, the Launchpad help desk must have
+made its ticket for it (helpdesk_tickets.mail_id). The logger asks the help
+desk to sync straight after logging, so this normally takes seconds.
+
+Mail log: every logged email, delivery result and weekly wash is also written
+to the Launchpad table public.mail_log, which the Maintenance panel shows.
+Email text in that table is cleared after BODY_DAYS (7), like help desk tickets;
+the full copy stays in the log mailbox.
+
 Config: /etc/chausima-logger.env  (INFO_USER, INFO_PASS, LOG_TO). Never printed.
+Supabase URL and service key are read from /home/opc/supabase/.env.
 State:  /var/lib/chausima-logger/state.json
 """
-import base64, json, os, sys, time, urllib.request, urllib.error
+import base64, json, os, sys, time, urllib.request, urllib.error, urllib.parse
 
 BASE = os.environ.get("MAIL_BASE", "https://mail.chausima.com")
 STATE = "/var/lib/chausima-logger/state.json"
@@ -30,6 +40,50 @@ SKIP_FROM = ("mailer-daemon", "postmaster")
 TAG = "[info@ log]"
 NOTE = "[Chausima note]"
 WASH_DAYS = float(os.environ.get("WASH_DAYS", "7"))
+BODY_DAYS = int(os.environ.get("BODY_DAYS", "7"))
+SUPA_ENV = "/home/opc/supabase/.env"
+
+class Supa:
+    """Talks to the Launchpad database (PostgREST) and functions with the service key."""
+    def __init__(self):
+        e = {}
+        try:
+            with open(SUPA_ENV) as f:
+                for line in f:
+                    if "=" in line and not line.startswith("#"):
+                        k, v = line.rstrip("\n").split("=", 1); e[k] = v.strip().strip('"')
+        except OSError: pass
+        self.url = (e.get("SUPABASE_PUBLIC_URL") or e.get("API_EXTERNAL_URL") or "https://hehs-live.duckdns.org").rstrip("/")
+        self.key = e.get("SERVICE_ROLE_KEY", "")
+        self.ok = bool(self.key)
+    def _req(self, method, path, body=None, prefer=None):
+        h = {"apikey": self.key, "Authorization": "Bearer " + self.key, "Content-Type": "application/json"}
+        if prefer: h["Prefer"] = prefer
+        r = urllib.request.Request(self.url + path, method=method, headers=h, data=json.dumps(body).encode() if body is not None else None)
+        with urllib.request.urlopen(r, timeout=30) as resp:
+            t = resp.read(); return json.loads(t) if t else None
+    def insert(self, row):
+        if not self.ok: return None
+        try: return (self._req("POST", "/rest/v1/mail_log", row, "return=representation") or [{}])[0].get("id")
+        except Exception as e: say("mail_log insert failed:", str(e)[:120]); return None
+    def update(self, rid, row):
+        if not (self.ok and rid): return
+        try: self._req("PATCH", f"/rest/v1/mail_log?id=eq.{rid}", row)
+        except Exception as e: say("mail_log update failed:", str(e)[:120])
+    def trim_bodies(self):
+        if not self.ok: return
+        cut = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - BODY_DAYS * 86400))
+        try: self._req("PATCH", f"/rest/v1/mail_log?at=lt.{cut}&body=not.is.null", {"body": None})
+        except Exception as e: say("mail_log trim failed:", str(e)[:120])
+    def has_ticket(self, mail_id):
+        if not self.ok: return True   # no database access: don't block deleting
+        try: return bool(self._req("GET", f"/rest/v1/helpdesk_tickets?select=id&mail_id=eq.{urllib.parse.quote(mail_id)}&limit=1"))
+        except Exception: return False
+    def helpdesk_sync(self):
+        if not self.ok: return
+        try: self._req("POST", "/functions/v1/helpdesk", {"action": "sync"})
+        except Exception as e: say("help desk sync failed:", str(e)[:120])
+SUPA = None
 
 def env():
     cfg = {}
@@ -78,8 +132,11 @@ def cycle(j, cfg, st):
     boxes = {b["role"]: b["id"] for b in r["m"]["list"] if b.get("role")}
     ident = next((i for i in r["i"]["list"] if i["email"].lower() == cfg["INFO_USER"].lower()), r["i"]["list"][0])
     inbox, sent = boxes["inbox"], boxes.get("sent")
+    before = len(pending(st))
     for folder, kind in ((inbox, "in"), (sent, "out")):
         if folder: log_folder(j, cfg, st, ident, folder, kind, sent)
+    if len(pending(st)) != before: SUPA.helpdesk_sync()
+    if time.time() - st.get("_last_trim", 0) > 3600: SUPA.trim_bodies(); st["_last_trim"] = time.time(); save_state(st)
     deliver_and_delete(j, cfg, st)
     maybe_wash(j, cfg, st, ident, inbox, sent)
 
@@ -113,7 +170,10 @@ def log_folder(j, cfg, st, ident, folder, kind, sent):
         sub = res["x"]["created"]["s"]["id"]
         j.call([["Email/set", {"accountId": j.acct, "update": {m["id"]: {"keywords/$logsent": True}}}, "u"]])
         prev = st.get(m["id"], {})
-        st[m["id"]] = {"sub": sub, "at": time.time(), "tries": prev.get("tries", 0) + 1, "keep": kind == "out"}
+        rid = prev.get("row") or SUPA.insert({"kind": kind, "mail_id": m["id"], "mail_from": addrs(m.get("from"))[:300], "mail_to": addrs(m.get("to"))[:300],
+                                             "subject": subj[:300], "body": text.strip()[:20000], "received_at": m.get("receivedAt"), "aol_status": "sending"})
+        st[m["id"]] = {"sub": sub, "at": time.time(), "tries": prev.get("tries", 0) + 1, "keep": kind == "out", "row": rid,
+                       "ticket": kind == "in" and frm != cfg["INFO_USER"].lower()}   # the help desk skips mail from info@ itself
         save_state(st); say("logged", kind, m["id"], "->", cfg["LOG_TO"])
 
 def pending(st): return {k: v for k, v in st.items() if not k.startswith("_")}
@@ -130,15 +190,20 @@ def deliver_and_delete(j, cfg, st):
         delivered = status.get("delivered")
         if delivered == "yes":
             if not v.get("keep"):
-                j.call([["Email/set", {"accountId": j.acct, "destroy": [eid]}, "d"]]); say("deleted original", eid, "(log delivered)")
+                if v.get("ticket", True) and not SUPA.has_ticket(eid):
+                    if not v.get("synced"): SUPA.helpdesk_sync(); v["synced"] = True; save_state(st)
+                    continue   # wait until the help desk has its ticket
+                j.call([["Email/set", {"accountId": j.acct, "destroy": [eid]}, "d"]]); say("deleted original", eid, "(log delivered, ticket made)")
+            SUPA.update(v.get("row"), {"aol_status": "delivered", **({} if v.get("keep") else {"deleted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})})
             del st[eid]; save_state(st)
         elif delivered == "no":
             if v["tries"] >= 3:
                 j.call([["Email/set", {"accountId": j.acct, "update": {eid: {"keywords/$logfailed": True, "keywords/$logsent": None}}}, "u"]])
+                SUPA.update(v.get("row"), {"aol_status": "failed"})
                 del st[eid]; say("gave up on", eid, "- left in info@ with $logfailed")
             else:
                 j.call([["Email/set", {"accountId": j.acct, "update": {eid: {"keywords/$logsent": None}}}, "u"]])
-                v["at"] = time.time(); say("log bounced, will retry", eid)
+                v["at"] = time.time(); SUPA.update(v.get("row"), {"aol_status": "retrying"}); say("log bounced, will retry", eid)
             save_state(st)
         elif s is None and time.time() - v["at"] > 6 * 3600:
             say("no delivery record for", eid, "- leaving it in info@"); del st[eid]; save_state(st)
@@ -183,12 +248,16 @@ def maybe_wash(j, cfg, st, ident, inbox, sent):
             f"The next wash is due around {time.strftime('%A %d %B %Y', time.gmtime(now + WASH_DAYS * 86400))}.")
     send_plain(j, ident, ident["email"], f"{NOTE} Inbox washed on {time.strftime('%d %b %Y', time.gmtime(now))}", note, mailbox=inbox, flag=True, submit=False)
     send_plain(j, ident, cfg["LOG_TO"], f"{TAG} Weekly wash done: {len(gone)} emails removed", note)
+    SUPA.insert({"kind": "wash", "subject": f"Weekly wash: {len(gone)} emails removed", "body": note, "aol_status": "sent"})
     st["_last_wash"] = now; save_state(st); say("weekly wash:", len(gone), "emails removed, note left in Inbox")
 
 def main():
     cfg = env()
     for k in ("INFO_USER", "INFO_PASS", "LOG_TO"):
         if not cfg.get(k): raise SystemExit(f"{k} missing in /etc/chausima-logger.env")
+    global SUPA
+    SUPA = Supa()
+    if not SUPA.ok: say("no Launchpad service key found - mail_log and help desk checks are off")
     st = load_state(); j = None
     while True:
         try:
