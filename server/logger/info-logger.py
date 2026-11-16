@@ -9,6 +9,13 @@ delivered (Stalwart's delivery status says "yes") and at least DELETE_AFTER
 seconds (210 = 3.5 minutes) have passed. If delivery fails it is retried, and
 after 3 failures the email is left in info@ with the keyword $logfailed.
 
+Replies sent from info@ are logged too (marked "Reply sent"), but stay in Sent.
+
+Weekly wash: every WASH_DAYS (7) days the whole info@ mailbox (every folder) is
+emptied, except emails whose log hasn't been delivered yet. Then a note is put
+in the Inbox for the AI that answers info@, saying when the wash happened and
+where older mail is, and a "weekly wash done" line goes to the log address.
+
 Config: /etc/chausima-logger.env  (INFO_USER, INFO_PASS, LOG_TO). Never printed.
 State:  /var/lib/chausima-logger/state.json
 """
@@ -21,6 +28,8 @@ EVERY = int(os.environ.get("EVERY", "30"))
 USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:submission"]
 SKIP_FROM = ("mailer-daemon", "postmaster")
 TAG = "[info@ log]"
+NOTE = "[Chausima note]"
+WASH_DAYS = float(os.environ.get("WASH_DAYS", "7"))
 
 def env():
     cfg = {}
@@ -69,16 +78,20 @@ def cycle(j, cfg, st):
     boxes = {b["role"]: b["id"] for b in r["m"]["list"] if b.get("role")}
     ident = next((i for i in r["i"]["list"] if i["email"].lower() == cfg["INFO_USER"].lower()), r["i"]["list"][0])
     inbox, sent = boxes["inbox"], boxes.get("sent")
+    for folder, kind in ((inbox, "in"), (sent, "out")):
+        if folder: log_folder(j, cfg, st, ident, folder, kind, sent)
+    deliver_and_delete(j, cfg, st)
+    maybe_wash(j, cfg, st, ident, inbox, sent)
 
-    # 1. log new mail
-    r = j.call([["Email/query", {"accountId": j.acct, "filter": {"inMailbox": inbox, "notKeyword": "$logsent"}, "sort": [{"property": "receivedAt", "isAscending": True}], "limit": 20}, "q"],
+def log_folder(j, cfg, st, ident, folder, kind, sent):
+    r = j.call([["Email/query", {"accountId": j.acct, "filter": {"inMailbox": folder, "notKeyword": "$logsent"}, "sort": [{"property": "receivedAt", "isAscending": True}], "limit": 20}, "q"],
                 ["Email/get", {"accountId": j.acct, "#ids": {"resultOf": "q", "name": "Email/query", "path": "/ids"},
                                "properties": ["from", "to", "cc", "subject", "receivedAt", "blobId", "textBody", "htmlBody", "bodyValues", "keywords"],
                                "fetchTextBodyValues": True, "fetchHTMLBodyValues": True, "maxBodyValueBytes": 500000}, "g"]])
     for m in r["g"]["list"]:
         frm = (m.get("from") or [{}])[0].get("email", "").lower()
         subj = m.get("subject") or "(no subject)"
-        if frm.split("@")[0] in SKIP_FROM or subj.startswith(TAG) or "$logfailed" in (m.get("keywords") or {}):
+        if frm.split("@")[0] in SKIP_FROM or subj.startswith(TAG) or subj.startswith(NOTE) or "$logfailed" in (m.get("keywords") or {}) or "$draft" in (m.get("keywords") or {}):
             continue
         vals = m.get("bodyValues") or {}
         text = "\n".join(vals.get(p["partId"], {}).get("value", "") for p in (m.get("textBody") or []))
@@ -90,7 +103,7 @@ def cycle(j, cfg, st):
                 f"Received: {m.get('receivedAt')}\nSubject:  {subj}\n\n{'-'*60}\n\n{text.strip()}\n\n{'-'*60}\nThe original email is attached as original.eml.\n")
         log = {"mailboxIds": {sent: True} if sent else {}, "keywords": {"$seen": True},
                "from": [{"name": "Chausima Mail log", "email": ident["email"]}], "to": [{"email": cfg["LOG_TO"]}],
-               "subject": f"{TAG} {subj}", "bodyValues": {"b": {"value": body}}, "textBody": [{"partId": "b", "type": "text/plain"}],
+               "subject": f"{TAG} {'Reply sent: ' if kind == 'out' else ''}{subj}", "bodyValues": {"b": {"value": body}}, "textBody": [{"partId": "b", "type": "text/plain"}],
                "attachments": [{"blobId": m["blobId"], "type": "message/rfc822", "name": "original.eml", "disposition": "attachment"}]}
         res = j.call([["Email/set", {"accountId": j.acct, "create": {"k": log}}, "e"],
                       ["EmailSubmission/set", {"accountId": j.acct, "create": {"s": {"identityId": ident["id"], "emailId": "#k"}},
@@ -100,11 +113,14 @@ def cycle(j, cfg, st):
         sub = res["x"]["created"]["s"]["id"]
         j.call([["Email/set", {"accountId": j.acct, "update": {m["id"]: {"keywords/$logsent": True}}}, "u"]])
         prev = st.get(m["id"], {})
-        st[m["id"]] = {"sub": sub, "at": time.time(), "tries": prev.get("tries", 0) + 1}
-        save_state(st); say("logged", m["id"], "->", cfg["LOG_TO"])
+        st[m["id"]] = {"sub": sub, "at": time.time(), "tries": prev.get("tries", 0) + 1, "keep": kind == "out"}
+        save_state(st); say("logged", kind, m["id"], "->", cfg["LOG_TO"])
 
-    # 2. delete originals once their log copy is delivered and 3.5 minutes have passed
-    due = {eid: v for eid, v in st.items() if time.time() - v["at"] >= DELETE_AFTER}
+def pending(st): return {k: v for k, v in st.items() if not k.startswith("_")}
+
+def deliver_and_delete(j, cfg, st):
+    """Delete originals once their log copy is delivered and 3.5 minutes have passed."""
+    due = {eid: v for eid, v in pending(st).items() if time.time() - v["at"] >= DELETE_AFTER}
     if not due: return
     r = j.call([["EmailSubmission/get", {"accountId": j.acct, "ids": [v["sub"] for v in due.values()], "properties": ["deliveryStatus", "undoStatus"]}, "s"]])
     subs = {s["id"]: s for s in r["s"]["list"]}
@@ -113,8 +129,9 @@ def cycle(j, cfg, st):
         status = ((s or {}).get("deliveryStatus") or {}).get(cfg["LOG_TO"].lower()) or ((s or {}).get("deliveryStatus") or {}).get(cfg["LOG_TO"]) or {}
         delivered = status.get("delivered")
         if delivered == "yes":
-            j.call([["Email/set", {"accountId": j.acct, "destroy": [eid]}, "d"]])
-            del st[eid]; save_state(st); say("deleted original", eid, "(log delivered)")
+            if not v.get("keep"):
+                j.call([["Email/set", {"accountId": j.acct, "destroy": [eid]}, "d"]]); say("deleted original", eid, "(log delivered)")
+            del st[eid]; save_state(st)
         elif delivered == "no":
             if v["tries"] >= 3:
                 j.call([["Email/set", {"accountId": j.acct, "update": {eid: {"keywords/$logfailed": True, "keywords/$logsent": None}}}, "u"]])
@@ -125,6 +142,48 @@ def cycle(j, cfg, st):
             save_state(st)
         elif s is None and time.time() - v["at"] > 6 * 3600:
             say("no delivery record for", eid, "- leaving it in info@"); del st[eid]; save_state(st)
+
+def send_plain(j, ident, to, subject, body, mailbox=None, flag=False, submit=True):
+    obj = {"mailboxIds": {mailbox: True} if mailbox else {}, "keywords": {"$flagged": True} if flag else {"$seen": True},
+           "from": [{"name": "Chausima Mail", "email": ident["email"]}], "to": [{"email": to}], "subject": subject,
+           "bodyValues": {"b": {"value": body}}, "textBody": [{"partId": "b", "type": "text/plain"}]}
+    calls = [["Email/set", {"accountId": j.acct, "create": {"k": obj}}, "e"]]
+    if submit:
+        calls.append(["EmailSubmission/set", {"accountId": j.acct, "create": {"s": {"identityId": ident["id"], "emailId": "#k"}}, "onSuccessDestroyEmail": ["#s"]}, "x"])
+    return j.call(calls)
+
+def maybe_wash(j, cfg, st, ident, inbox, sent):
+    now = time.time()
+    last = st.get("_last_wash")
+    if last is None:
+        st["_last_wash"] = now; save_state(st); say("weekly wash clock started"); return
+    if now - last < WASH_DAYS * 86400: return
+    keep = set(pending(st))  # logs not delivered yet
+    ids, pos = [], 0
+    while True:
+        r = j.call([["Email/query", {"accountId": j.acct, "position": pos, "limit": 500}, "q"]])
+        got = r["q"].get("ids", []); ids += got; pos += len(got)
+        if len(got) < 500: break
+    # never wash mail that hasn't been logged yet
+    r = j.call([["Email/get", {"accountId": j.acct, "ids": ids, "properties": ["keywords", "mailboxIds", "subject"]}, "g"]]) if ids else {"g": {"list": []}}
+    gone = []
+    for m in r["g"]["list"]:
+        k, boxes = m.get("keywords") or {}, m.get("mailboxIds") or {}
+        unlogged = (inbox in boxes or (sent and sent in boxes)) and "$logsent" not in k and "$draft" not in k and not (m.get("subject") or "").startswith(NOTE)
+        if m["id"] in keep or unlogged: continue
+        gone.append(m["id"])
+    for i in range(0, len(gone), 200):
+        j.call([["Email/set", {"accountId": j.acct, "destroy": gone[i:i + 200]}, "d"]])
+    when = time.strftime("%A %d %B %Y at %H:%M UTC", time.gmtime(now))
+    note = (f"Note for whoever answers info@chausima.com (including the AI helper):\n\n"
+            f"This mailbox was washed clean on {when}. {len(gone)} emails were removed from every folder.\n"
+            f"Nothing was lost: every email received and every reply sent before then was copied to the log mailbox ({cfg['LOG_TO']}).\n\n"
+            f"If someone mentions an earlier email you can't find here, it was archived in the weekly wash. "
+            f"Tell them politely it has been archived and ask them to send the details again.\n\n"
+            f"The next wash is due around {time.strftime('%A %d %B %Y', time.gmtime(now + WASH_DAYS * 86400))}.")
+    send_plain(j, ident, ident["email"], f"{NOTE} Inbox washed on {time.strftime('%d %b %Y', time.gmtime(now))}", note, mailbox=inbox, flag=True, submit=False)
+    send_plain(j, ident, cfg["LOG_TO"], f"{TAG} Weekly wash done: {len(gone)} emails removed", note)
+    st["_last_wash"] = now; save_state(st); say("weekly wash:", len(gone), "emails removed, note left in Inbox")
 
 def main():
     cfg = env()
