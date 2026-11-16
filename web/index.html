@@ -300,6 +300,7 @@ dialog#write::backdrop{background:rgba(15,19,23,.45)}
     <div class="menu-pop" id="mePop" hidden>
       <div class="me-who"><span class="avatar big" id="meBig"></span><b id="meAddr"></b></div>
       <button class="pop-item" id="themeBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="themeLabel">Dark mode</span></button>
+      <button class="pop-item" id="keysBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>Keyboard shortcuts</button>
       <button class="pop-item" id="outBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>Sign out</button>
     </div>
   </header>
@@ -311,7 +312,17 @@ dialog#write::backdrop{background:rgba(15,19,23,.45)}
   </nav>
 
   <section class="list" aria-label="Messages">
-    <div class="listhead"><h2 id="listTitle" class="label">Inbox</h2>
+    <div class="listhead">
+      <label class="pickall" title="Select all"><input type="checkbox" id="pickAll"><span class="sr">Select all</span></label>
+      <h2 id="listTitle" class="label">Inbox</h2>
+      <div class="bulk" id="bulk" hidden>
+        <span class="count" id="bulkCount"></span>
+        <button class="iconbtn" data-bulk="archive" title="Archive (e)" aria-label="Archive selected"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="4" rx="1"/><path d="M6 9v10h12V9M10 13h4"/></svg></button>
+        <button class="iconbtn" data-bulk="bin" title="Bin (#)" aria-label="Move selected to the Bin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>
+        <button class="iconbtn" data-bulk="read" title="Mark as read" aria-label="Mark selected as read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l8-5 8 5v9H4z"/><path d="M4 10l8 5 8-5"/></svg></button>
+        <button class="iconbtn" data-bulk="unread" title="Mark as unread" aria-label="Mark selected as unread"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="M4 7l8 6 8-6"/></svg></button>
+        <button class="iconbtn" data-bulk="clear" title="Clear selection (Esc)" aria-label="Clear selection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
       <button class="iconbtn" id="refreshBtn" aria-label="Check for new mail" title="Check for new mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button></div>
     <ul class="msgs" id="msgs"></ul>
     <p class="empty" id="listEmpty" hidden></p>
@@ -340,7 +351,29 @@ dialog#write::backdrop{background:rgba(15,19,23,.45)}
   </form>
 </dialog>
 
-<div class="toast" id="toast" role="status" hidden></div>
+<div class="toast" id="toast" role="status" hidden><span id="toastText"></span><button type="button" id="toastUndo" hidden>Undo</button></div>
+
+<dialog id="keys" aria-labelledby="keysTitle">
+  <div class="keysbox">
+    <div class="whead"><h2 id="keysTitle">Keyboard shortcuts</h2>
+      <button class="iconbtn" type="button" id="keysClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <dl class="keylist">
+      <div><dt><kbd>c</kbd></dt><dd>Write a new message</dd></div>
+      <div><dt><kbd>/</kbd></dt><dd>Search</dd></div>
+      <div><dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous message</dd></div>
+      <div><dt><kbd>Enter</kbd></dt><dd>Open message</dd></div>
+      <div><dt><kbd>u</kbd></dt><dd>Back to the list</dd></div>
+      <div><dt><kbd>r</kbd> <kbd>a</kbd> <kbd>f</kbd></dt><dd>Reply, reply to all, forward</dd></div>
+      <div><dt><kbd>e</kbd></dt><dd>Archive</dd></div>
+      <div><dt><kbd>#</kbd></dt><dd>Move to the Bin</dd></div>
+      <div><dt><kbd>s</kbd></dt><dd>Star or unstar</dd></div>
+      <div><dt><kbd>x</kbd></dt><dd>Select message</dd></div>
+      <div><dt><kbd>Shift</kbd> + <kbd>u</kbd></dt><dd>Mark unread</dd></div>
+      <div><dt><kbd>g</kbd> then <kbd>i</kbd></dt><dd>Go to Inbox</dd></div>
+      <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
+    </dl>
+  </div>
+</dialog>
 
 <script>
 /* Brand intro: a short line-drawing animation shown once per visit before a sign-in page.
@@ -496,13 +529,17 @@ dialog#write::backdrop{background:rgba(15,19,23,.45)}
 const USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:submission"];
 const PAGE = 40;
 const $ = (id) => document.getElementById(id);
-const S = { auth: "", email: "", api: "", dl: "", acct: "", boxes: [], box: null, ids: [], pos: 0, total: 0, q: "", open: null, ident: null, showImgs: false, timer: 0, reply: null };
+const S = { auth: "", email: "", api: "", dl: "", acct: "", boxes: [], box: null, ids: [], pos: 0, total: 0, q: "", open: null, ident: null, showImgs: false, timer: 0, reply: null, sel: new Set(), cur: null, unreadInbox: null };
 
 /* ---------- small helpers ---------- */
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = { get(k) { try { return sessionStorage.getItem(k); } catch { return null; } }, set(k, v) { try { sessionStorage.setItem(k, v); } catch {} }, del(k) { try { sessionStorage.removeItem(k); } catch {} } };
 const pref = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
-function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 3200); }
+function toast(t, undo) {
+  const el = $("toast"); $("toastText").textContent = t; el.hidden = false;
+  const u = $("toastUndo"); u.hidden = !undo; u.onclick = undo ? () => { el.hidden = true; undo(); } : null;
+  clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), undo ? 6000 : 3200);
+}
 function who(a) { return a && a.length ? (a[0].name || a[0].email) : "(nobody)"; }
 function addrs(a) { return (a || []).map((x) => x.name ? `${x.name} <${x.email}>` : x.email).join(", "); }
 function when(iso, long) {
@@ -626,6 +663,10 @@ async function loadBoxes() {
 }
 const role = (r) => S.boxes.find((b) => b.role === r);
 function drawBoxes() {
+  const ib = role("inbox"), n = ib ? ib.unreadEmails || 0 : 0;
+  document.title = n ? `Inbox (${n}) · Chausima Mail` : "Chausima Mail";
+  if (S.unreadInbox !== null && n > S.unreadInbox && document.hidden !== undefined) toast(n - S.unreadInbox === 1 ? "1 new message" : `${n - S.unreadInbox} new messages`);
+  S.unreadInbox = n;
   const list = S.boxes.slice(); const at = list.findIndex((b) => b.role === "inbox"); list.splice(at + 1, 0, STARRED);
   $("folders").innerHTML = list.map((b) => `<li><button data-box="${esc(b.id)}" aria-current="${S.box && S.box.id === b.id}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[b.role] || ICON.other}</svg>
@@ -663,23 +704,65 @@ async function loadList(more) {
   for (const m of g.list || []) listCache.set(m.id, m);
   drawList();
 }
+function dayGroup(iso) {
+  const d = new Date(iso), now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
+  if (d.toDateString() === now.toDateString()) return "Today";
+  if (d.toDateString() === y.toDateString()) return "Yesterday";
+  if (now - d < 7 * 864e5) return "This week";
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) return "Earlier this month";
+  return d.toLocaleDateString("en-GB", { month: "long", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) });
+}
+const QUICK = {
+  archive: ['Archive', ICON.archive], bin: ['Move to the Bin', ICON.trash],
+  read: ['Mark as read', '<path d="M4 10l8-5 8 5v9H4z"/><path d="M4 10l8 5 8-5"/>'],
+  unread: ['Mark as unread', '<rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="M4 7l8 6 8-6"/>']
+};
 function drawList() {
   $("listTitle").textContent = S.q ? `Results for "${S.q}"` : boxName(S.box);
   const sentish = S.box && (S.box.role === "sent" || S.box.role === "drafts");
+  const canArchive = S.box && S.box.role !== "archive" && S.box.role !== "trash" && role("archive");
+  const inTrash = S.box && S.box.role === "trash";
+  let lastGroup = "";
   $("msgs").innerHTML = S.ids.map((id) => {
     const m = listCache.get(id); if (!m) return "";
     const k = m.keywords || {}, unread = !k["$seen"], starred = !!k["$flagged"], people = sentish ? m.to : m.from;
-    return `<li class="${unread ? "unread" : ""}"><button class="row" data-id="${esc(id)}" aria-current="${S.open === id}">
+    const g = dayGroup(m.receivedAt), head = g !== lastGroup ? `<li class="group" aria-hidden="true">${esc(g)}</li>` : ""; lastGroup = g;
+    const picked = S.sel.has(id);
+    const quick = [canArchive ? "archive" : null, inTrash ? null : "bin", unread ? "read" : "unread"].filter(Boolean)
+      .map((q) => `<button class="q" data-quick="${q}" data-for="${esc(id)}" title="${QUICK[q][0]}" aria-label="${QUICK[q][0]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${QUICK[q][1]}</svg></button>`).join("");
+    return `${head}<li class="${unread ? "unread" : ""}${picked ? " picked" : ""}${S.cur === id ? " cur" : ""}" data-li="${esc(id)}">
+      <div class="swipe-bg" aria-hidden="true"><span class="l">${canArchive ? "Archive" : "Bin"}</span><span class="r">${inTrash ? "" : "Bin"}</span></div>
+      <button class="row" data-id="${esc(id)}" aria-current="${S.open === id}">
       ${avatar(people)}
       <span class="who">${sentish ? "To: " : ""}${esc(who(people))}</span><span class="when">${esc(when(m.receivedAt))}</span>
-      <span class="subj">${esc(m.subject || "(no subject)")}</span><span class="pre">${m.hasAttachment ? "📎 " : ""}${esc(m.preview || "")}</span>
+      <span class="subj">${esc(m.subject || "(no subject)")}</span><span class="pre">${m.hasAttachment ? '<svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-label="Has attachment"><path d="M8 12l6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l7-7"/></svg>' : ""}${esc(m.preview || "")}</span>
       ${unread ? '<span class="sr">Unread</span>' : ""}</button>
+      <button class="pick" data-pick="${esc(id)}" role="checkbox" aria-checked="${picked}" aria-label="Select message from ${esc(who(people))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5l4 4 8-9"/></svg></button>
+      <div class="quick">${quick}</div>
       <button class="star${starred ? " on" : ""}" data-star="${esc(id)}" aria-pressed="${starred}" aria-label="${starred ? "Remove star" : "Star"}"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${ICON.starred}</svg></button></li>`;
   }).join("");
   const empty = !S.ids.length;
   $("listEmpty").hidden = !empty;
-  $("listEmpty").textContent = S.q ? "Nothing matches that search. Try fewer words." : ({ inbox: "Your inbox is empty. New mail shows up here.", starred: "No starred messages. Tap the star on a message to keep it here." }[S.box.role] || "Nothing in here.");
+  $("listEmpty").innerHTML = empty ? emptyArt() + `<p>${esc(S.q ? "Nothing matches that search. Try fewer words." : ({ inbox: "You're all caught up. New mail shows up here.", starred: "No starred messages. Tap the star on a message to keep it here.", drafts: "No drafts. Anything you save while writing waits here.", sent: "Nothing sent yet.", trash: "The Bin is empty.", junk: "No junk. Nice." }[S.box.role] || "Nothing in here."))}</p>` : "";
   $("moreBtn").hidden = S.ids.length >= S.total;
+  drawBulk();
+}
+function emptyArt() {
+  return `<svg class="stampart" viewBox="0 0 160 120" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 18h70v84H30z" stroke-dasharray="2 7"/><rect x="40" y="28" width="50" height="64" rx="3"/>
+    <path d="M48 76l12-16 10 10 8-8 8 14" /><circle cx="74" cy="44" r="6"/>
+    <circle cx="112" cy="58" r="30"/><circle cx="112" cy="58" r="20" stroke-width="2"/>
+    <path d="M70 52q10-6 20 0t20 0t20 0t20 0M70 66q10-6 20 0t20 0t20 0t20 0" class="wv"/></svg>`;
+}
+function drawBulk() {
+  for (const id of [...S.sel]) if (!listCache.has(id) || !S.ids.includes(id)) S.sel.delete(id);
+  const n = S.sel.size; $("bulk").hidden = !n; $("listTitle").hidden = !!n; $("refreshBtn").hidden = !!n;
+  $("bulkCount").textContent = n ? `${n} selected` : "";
+  const all = $("pickAll"); all.checked = n > 0 && n === S.ids.length; all.indeterminate = n > 0 && n < S.ids.length;
+  $("app").classList.toggle("picking", n > 0);
+  const hasArch = S.box && S.box.role !== "archive" && S.box.role !== "trash" && role("archive");
+  $("bulk").querySelector('[data-bulk="archive"]').hidden = !hasArch;
+  $("bulk").querySelector('[data-bulk="bin"]').hidden = !!(S.box && S.box.role === "trash");
 }
 async function toggleStar(id) {
   const m = listCache.get(id); if (!m) return;
@@ -690,7 +773,11 @@ async function toggleStar(id) {
   catch (err) { if (on) delete m.keywords.$flagged; else m.keywords.$flagged = true; drawList(); fail(err); }
 }
 $("msgs").addEventListener("click", (e) => {
+  if (swipe.moved) { swipe.moved = false; return; }
+  const pk = e.target.closest("[data-pick]"); if (pk) { togglePick(pk.dataset.pick); return; }
+  const qk = e.target.closest("[data-quick]"); if (qk) { bulk(qk.dataset.quick, [qk.dataset.for]).catch(fail); return; }
   const st = e.target.closest("[data-star]"); if (st) { toggleStar(st.dataset.star); return; }
+  if (S.sel.size) { const r = e.target.closest("[data-id]"); if (r) { togglePick(r.dataset.id); return; } }
   const b = e.target.closest("[data-id]"); if (b) openMsg(b.dataset.id).catch(fail);
 });
 let lastY = 0;
@@ -734,24 +821,31 @@ function drawMsg(m) {
   const inTrash = S.box && S.box.role === "trash";
   const isDraft = (m.keywords || {})["$draft"];
   const f = (m.from || [])[0] || {};
-  sheet.innerHTML = `<button class="btn plain back" id="backBtn" style="margin-bottom:12px">← ${esc(boxName(S.box))}</button>
+  const starred = !!(m.keywords || {})["$flagged"];
+  const tb = (act, label, path, extra = "") => `<button class="iconbtn" data-act="${act}" title="${label}" aria-label="${label}" ${extra}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg></button>`;
+  sheet.innerHTML = `<div class="toolbar">
+    <button class="iconbtn" id="backBtn" title="Back to ${esc(boxName(S.box))} (u)" aria-label="Back to ${esc(boxName(S.box))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+    ${S.box && S.box.role !== "archive" && role("archive") && !inTrash ? tb("archive", "Archive (e)", ICON.archive) : ""}
+    ${inTrash ? tb("restore", "Back to inbox", '<path d="M9 14l-4-4 4-4"/><path d="M5 10h10a4 4 0 0 1 0 8h-3"/>') + tb("forever", "Delete for good", '<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10 11l4 4M14 11l-4 4"/>') : tb("bin", "Move to the Bin (#)", ICON.trash)}
+    ${tb("unread", "Mark unread (Shift+U)", '<rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="M4 7l8 6 8-6"/>')}
+    <span class="grow"></span>
+    ${tb("star", starred ? "Remove star (s)" : "Star (s)", ICON.starred, `aria-pressed="${starred}" class="iconbtn${starred ? " starred" : ""}"`).replace('class="iconbtn" data-act="star"', 'data-act="star"')}
+    ${isDraft ? "" : tb("reply", "Reply (r)", '<path d="M10 8L4 13l6 5"/><path d="M4 13h10a6 6 0 0 1 6 6"/>')}
+  </div>
   <article class="paperslip">
     <h2>${esc(m.subject || "(no subject)")}</h2>
     <div class="from">${avatar(m.from, true)}
       <div class="names"><b>${esc(f.name || f.email || "(unknown sender)")}</b><span>${f.name ? esc(f.email) + " · " : ""}to ${esc(addrs(m.to) || "(nobody)")}${m.cc && m.cc.length ? ", cc " + esc(addrs(m.cc)) : ""}</span></div>
       <time datetime="${esc(m.receivedAt)}">${esc(when(m.receivedAt, true))}</time></div>
-    <div class="actions">
-      ${isDraft ? `<button class="btn main" data-act="edit">Carry on writing</button>` : `<button class="btn main" data-act="reply">Reply</button>
-      ${(m.cc && m.cc.length) || (m.to && m.to.length > 1) ? `<button class="btn plain" data-act="all">Reply to all</button>` : ""}
-      <button class="btn plain" data-act="fwd">Forward</button>`}
-      ${S.box && S.box.role !== "archive" && role("archive") && !inTrash ? `<button class="btn plain" data-act="archive">Archive</button>` : ""}
-      ${inTrash ? `<button class="btn plain" data-act="restore">Back to inbox</button><button class="btn plain" data-act="forever">Delete for good</button>` : `<button class="btn plain" data-act="bin">Bin</button>`}
-      <button class="btn plain" data-act="unread">Mark unread</button>
-    </div>
     <div id="confirmSlot"></div>
     ${remote ? `<div class="imgnote" id="imgNote"><span>Pictures from the internet are hidden, so senders can't tell you opened this.</span><button data-act="imgs">Show pictures</button></div>` : ""}
     <div class="body" id="msgBody"></div>
-    ${atts.length ? `<div class="atts">${atts.map((a, i) => `<button class="att" data-att="${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 12l6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l7-7"/></svg>${esc(a.name || "attachment")} <span style="color:var(--soft)">${esc(size(a.size || 0))}</span></button>`).join("")}</div>` : ""}
+    ${atts.length ? `<div class="atts">${atts.map((a, i) => `<button class="att" data-att="${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 12l6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l7-7"/></svg><span class="an">${esc(a.name || "attachment")}</span> <span class="as">${esc(size(a.size || 0))}</span></button>`).join("")}</div>` : ""}
+    <div class="replybar">
+      ${isDraft ? `<button class="btn main" data-act="edit">Carry on writing</button>` : `<button class="btn pill" data-act="reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 8L4 13l6 5"/><path d="M4 13h10a6 6 0 0 1 6 6"/></svg>Reply</button>
+      ${(m.cc && m.cc.length) || (m.to && m.to.length > 1) ? `<button class="btn pill" data-act="all"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8l-5 5 5 5M7 8l-5 5 5 5"/><path d="M7 13h7a6 6 0 0 1 6 6"/></svg>Reply to all</button>` : ""}
+      <button class="btn pill" data-act="fwd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8l6 5-6 5"/><path d="M20 13H10a6 6 0 0 0-6 6"/></svg>Forward</button>`}
+    </div>
   </article>`;
   drawBody(html, text);
   sheet.onclick = (e) => {
@@ -795,16 +889,17 @@ async function act(a, m, html, text) {
   if (a === "imgs") { S.showImgs = true; $("imgNote").remove(); drawBody(html, text); return; }
   if (a === "reply" || a === "all" || a === "fwd" || a === "edit") return openWrite(a, m, html, text);
   if (a === "unread") { await jmap([["Email/set", { accountId: S.acct, update: { [m.id]: { "keywords/$seen": null } } }, "s"]]); toast("Marked as unread."); return closeAndRefresh(); }
-  if (a === "archive") { await move(m, "archive"); toast("Archived."); return closeAndRefresh(); }
-  if (a === "bin") { await move(m, "trash"); toast("Moved to the Bin."); return closeAndRefresh(); }
+  if (a === "archive" || a === "bin") { closeReading(); return bulk(a, [m.id]); }
   if (a === "restore") { await move(m, "inbox"); toast("Moved back to your inbox."); return closeAndRefresh(); }
   if (a === "forever") {
     $("confirmSlot").innerHTML = `<div class="confirm"><span>Delete this message for good? You can't undo this.</span><button class="btn main" data-act="forever2">Delete for good</button><button class="btn plain" data-act="keep">Keep it</button></div>`;
     return;
   }
   if (a === "keep") { $("confirmSlot").innerHTML = ""; return; }
+  if (a === "star") { await toggleStar(m.id); const c = listCache.get(m.id); m.keywords = c ? c.keywords : m.keywords; const b = $("sheet").querySelector('[data-act="star"]'); const on = !!(m.keywords || {}).$flagged; b.classList.toggle("starred", on); b.setAttribute("aria-pressed", on); b.title = b.ariaLabel = on ? "Remove star (s)" : "Star (s)"; return; }
   if (a === "forever2") { await jmap([["Email/set", { accountId: S.acct, destroy: [m.id] }, "s"]]); toast("Deleted for good."); return closeAndRefresh(); }
 }
+function closeReading() { S.open = null; $("sheet").hidden = true; $("nothing").hidden = false; $("app").classList.remove("reading"); }
 async function closeAndRefresh() { S.open = null; $("sheet").hidden = true; $("nothing").hidden = false; $("app").classList.remove("reading"); await refresh(false); }
 
 /* ---------- writing ---------- */
