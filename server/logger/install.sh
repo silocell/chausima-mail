@@ -6,7 +6,10 @@ set -e
 LOG_TO=${1:?log address}
 install -m 755 "$(dirname "$0")/info-logger.py" /usr/local/sbin/chausima-info-logger
 if [ ! -s /etc/chausima-logger.env ] || [ "$2" = newpass ]; then
-  read -rsp "Paste info@chausima.com's app password, then press Enter: " PW; echo
+  echo "Type or paste info@chausima.com's password. You'll see it while typing;"
+  echo "it disappears from the screen as soon as you press Enter."
+  read -rp "Password: " PW
+  printf '\033[1A\033[2K\r'; clear; printf '\033[3J'; echo "Password saved (hidden)."
   [ -n "$PW" ] || { echo "No password given."; exit 1; }
   umask 077; printf 'INFO_USER=info@chausima.com\nINFO_PASS=%s\nLOG_TO=%s\n' "$PW" "$LOG_TO" > /etc/chausima-logger.env; unset PW
 fi
