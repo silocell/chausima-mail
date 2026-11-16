@@ -13,7 +13,10 @@ a=["-d","--name","stalwart"]
 rp=h.get("RestartPolicy",{}).get("Name")
 if rp and rp!="no": a+=["--restart",rp]
 for m in c["Mounts"]:
-    if m["Type"]=="bind": a+=["-v",m["Source"]+":"+m["Destination"]+("" if m.get("RW",True) else ":ro")+(":"+m["Mode"] if m.get("Mode") else "")]
+    if m["Type"]=="bind":
+        opts=[o for o in (m.get("Mode") or "").split(",") if o and o not in ("ro","rw")]
+        if not m.get("RW",True): opts.insert(0,"ro")
+        a+=["-v",m["Source"]+":"+m["Destination"]+(":"+",".join(opts) if opts else "")]
     elif m["Type"]=="volume": a+=["-v",m["Name"]+":"+m["Destination"]]
 for e in cfg.get("Env") or []:
     if not e.startswith("PATH="): a+=["-e",e]
