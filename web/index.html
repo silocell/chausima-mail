@@ -255,6 +255,100 @@ dialog#write::backdrop{background:rgba(15,19,23,.45)}
 .msgs .unread .star::before,.msgs .star::before{content:none}
 .from .avatar{width:40px;height:40px;font-size:17px}
 @media (max-width:820px){dialog#write{width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}dialog#write .wform{height:100%;max-height:100vh}dialog#write textarea{min-height:0}}
+
+/* ===== v2: postal details, selection, quick actions, swipe, reading toolbar ===== */
+:root{--air-red:#c8312b;--air-blue:#1f3a93;--pick:#1f3a93}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--air-red:#ff6a5c;--air-blue:#7f9cff;--pick:#9fb4ff}}
+:root[data-theme="dark"]{--air-red:#ff6a5c;--air-blue:#7f9cff;--pick:#9fb4ff}
+.airmail{background:repeating-linear-gradient(135deg,var(--air-red) 0 12px,transparent 12px 18px,var(--air-blue) 18px 30px,transparent 30px 36px)}
+.top::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:repeating-linear-gradient(135deg,var(--air-red) 0 12px,transparent 12px 18px,var(--air-blue) 18px 30px,transparent 30px 36px)}
+dialog#write .whead{position:relative;padding-top:18px}
+dialog#write .whead::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:repeating-linear-gradient(135deg,var(--air-red) 0 12px,transparent 12px 18px,var(--air-blue) 18px 30px,transparent 30px 36px)}
+
+/* list head: select all + bulk bar */
+.listhead{gap:8px;min-height:52px}
+.listhead h2{flex:1}
+.pickall{display:grid;place-items:center;width:28px;height:28px;margin-left:-6px}
+.pickall input{width:18px;height:18px;accent-color:var(--pick);cursor:pointer}
+.bulk{flex:1;display:flex;align-items:center;gap:2px}
+.bulk .count{font-weight:700;font-size:15px;margin-right:auto;padding-left:2px}
+
+/* date groups */
+.msgs li.group{border:0!important;background:transparent!important;font-size:13px;font-weight:700;color:var(--soft);padding:14px 20px 6px;letter-spacing:.01em}
+.msgs li.group:first-child{padding-top:8px}
+
+/* avatar becomes a tick box */
+.msgs .pick{position:absolute;left:16px;top:14px;width:40px;height:40px;border-radius:50%;border:0;padding:0;background:transparent;display:grid;place-items:center;color:transparent;z-index:2}
+.msgs .pick svg{width:22px;height:22px}
+.msgs li:hover .pick{background:rgba(0,0,0,.08)}
+.msgs li.picked .pick,#app.picking .msgs .pick{color:#fff}
+.msgs li.picked .pick{background:var(--pick)}
+#app.picking .msgs li:not(.picked) .pick{background:var(--card);box-shadow:inset 0 0 0 2px var(--soft);color:transparent}
+.msgs li.picked .row{background:color-mix(in srgb,var(--pick) 10%,var(--card))}
+.msgs li.cur .row{box-shadow:inset 3px 0 0 var(--red)}
+
+/* quick actions on hover (desktop) */
+.msgs .quick{position:absolute;right:52px;bottom:6px;display:none;gap:2px;z-index:2}
+.msgs .q{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--soft);display:grid;place-items:center}
+.msgs .q:hover{background:var(--pill);color:var(--ink)}
+.msgs .q svg{width:19px;height:19px}
+@media (hover:hover) and (min-width:821px){.msgs li:hover .quick,.msgs li:focus-within .quick{display:flex}.msgs li:hover .pre{visibility:hidden}}
+.msgs .clip{width:14px;height:14px;vertical-align:-2px;margin-right:4px;color:var(--soft)}
+
+/* swipe */
+.msgs .swipe-bg{position:absolute;inset:0;display:none;align-items:center;justify-content:space-between;padding:0 24px;font-weight:700;color:#fff}
+.msgs li.swiping .swipe-bg{display:flex}
+.msgs li.go-l .swipe-bg{background:#2e7d5b}.msgs li.go-r .swipe-bg{background:var(--air-red)}
+.msgs li.go-l .swipe-bg .r,.msgs li.go-r .swipe-bg .l{visibility:hidden}
+.msgs li.armed .swipe-bg span{transform:scale(1.12)}
+.msgs li.swiping .row{background:var(--card);position:relative;z-index:1;touch-action:pan-y}
+.msgs .row{touch-action:pan-y}
+
+/* reading: icon toolbar + reply pills */
+.toolbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:2px;padding:8px 4px;margin:-16px -24px 8px;padding-left:16px;padding-right:16px;background:var(--card);border-bottom:1px solid var(--rowline)}
+.toolbar .grow{flex:1}
+.toolbar .iconbtn.starred{color:var(--star)}
+.toolbar .iconbtn.starred svg{fill:currentColor}
+.back{display:inline-grid!important}
+.replybar{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
+.btn.pill{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:9px 18px 9px 14px;font-weight:700}
+.btn.pill:hover{background:var(--hover)}
+.btn.pill svg{width:18px;height:18px}
+.paperslip h2{margin-top:10px}
+.att .an{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att .as{color:var(--soft)}
+
+/* empty states */
+.empty{padding:48px 24px}
+.empty .stampart{width:160px;height:120px;color:var(--line);display:block;margin:0 auto 8px}
+.empty .stampart .wv{stroke:var(--red);opacity:.55}
+.empty p{margin:0;max-width:280px;margin-inline:auto}
+.nothing svg{color:var(--line)}
+
+/* toast with undo */
+.toast{display:flex;align-items:center;gap:14px;border-radius:12px;padding:10px 10px 10px 16px}
+.toast button{border:0;background:transparent;color:var(--red-wash);font-weight:700;padding:4px 8px;border-radius:8px;text-decoration:underline}
+:root[data-theme="dark"] .toast button{color:var(--red-ink)}
+
+/* shortcuts dialog */
+dialog#keys{border:0;padding:0;border-radius:16px;width:min(520px,calc(100% - 32px));background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog#keys::backdrop{background:rgba(15,19,23,.45)}
+.keylist{margin:0;padding:8px 20px 20px;display:grid;gap:2px}
+.keylist div{display:flex;gap:16px;align-items:center;padding:6px 0;border-bottom:1px solid var(--rowline)}
+.keylist dt{width:150px;flex:none}.keylist dd{margin:0;color:var(--soft)}
+kbd{display:inline-block;min-width:24px;text-align:center;padding:2px 7px;border-radius:6px;border:1px solid var(--line);border-bottom-width:2px;font:700 13px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--paper)}
+
+@media (max-width:820px){
+  .toolbar{margin:-8px -12px 8px;padding:6px 8px}
+  .msgs .pick{left:16px;top:14px}
+  .msgs li.group{padding:12px 12px 4px}
+  .replybar .btn.pill{flex:1;justify-content:center}
+}
+.msgs .unread .pick::before,.msgs .unread .q::before,.msgs .unread .star::before{content:none!important}
+.btn.pill{white-space:nowrap}
+@media (hover:hover) and (min-width:821px){.msgs li:focus-within:not(:hover) .quick{display:none}.msgs li:has(:focus-visible) .quick{display:flex}}
+@media (max-width:820px){.msgs .pick{top:16px}.replybar{gap:8px}.replybar .btn.pill{padding:9px 10px;font-size:15px;gap:6px}}
+@media (prefers-reduced-motion:reduce){.msgs .row{transition:none!important}}
 </style>
 </head>
 <body>
@@ -674,7 +768,7 @@ function drawBoxes() {
 }
 $("folders").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-box]"); if (!btn) return;
-  S.box = btn.dataset.box === STARRED.id ? STARRED : S.boxes.find((b) => b.id === btn.dataset.box); S.q = ""; $("q").value = "";
+  S.box = btn.dataset.box === STARRED.id ? STARRED : S.boxes.find((b) => b.id === btn.dataset.box); S.q = ""; $("q").value = ""; S.sel.clear(); S.cur = null; closeReading();
   $("app").classList.remove("railopen"); drawBoxes(); loadList().catch(fail);
 });
 $("menuBtn").onclick = () => { const o = $("app").classList.toggle("railopen"); $("menuBtn").setAttribute("aria-expanded", o); };
@@ -793,7 +887,7 @@ async function refresh(say) {
 
 /* ---------- reading ---------- */
 async function openMsg(id) {
-  S.open = id; S.showImgs = false; drawList();
+  S.open = id; S.cur = id; S.showImgs = false; drawList();
   const res = await jmap([["Email/get", { accountId: S.acct, ids: [id], properties: [...LIST_PROPS, "cc", "replyTo", "messageId", "references", "sentAt", "htmlBody", "textBody", "attachments"], fetchHTMLBodyValues: true, fetchTextBodyValues: true, maxBodyValueBytes: 2000000 }, "g"]]);
   const m = (pick(res, "g").list || [])[0];
   if (!m) { toast("That message has gone. It may have been moved."); return; }
@@ -888,7 +982,7 @@ async function move(m, toRole) {
 async function act(a, m, html, text) {
   if (a === "imgs") { S.showImgs = true; $("imgNote").remove(); drawBody(html, text); return; }
   if (a === "reply" || a === "all" || a === "fwd" || a === "edit") return openWrite(a, m, html, text);
-  if (a === "unread") { await jmap([["Email/set", { accountId: S.acct, update: { [m.id]: { "keywords/$seen": null } } }, "s"]]); toast("Marked as unread."); return closeAndRefresh(); }
+  if (a === "unread") { S.unreadInbox = null; await jmap([["Email/set", { accountId: S.acct, update: { [m.id]: { "keywords/$seen": null } } }, "s"]]); toast("Marked as unread."); return closeAndRefresh(); }
   if (a === "archive" || a === "bin") { closeReading(); return bulk(a, [m.id]); }
   if (a === "restore") { await move(m, "inbox"); toast("Moved back to your inbox."); return closeAndRefresh(); }
   if (a === "forever") {
@@ -896,7 +990,7 @@ async function act(a, m, html, text) {
     return;
   }
   if (a === "keep") { $("confirmSlot").innerHTML = ""; return; }
-  if (a === "star") { await toggleStar(m.id); const c = listCache.get(m.id); m.keywords = c ? c.keywords : m.keywords; const b = $("sheet").querySelector('[data-act="star"]'); const on = !!(m.keywords || {}).$flagged; b.classList.toggle("starred", on); b.setAttribute("aria-pressed", on); b.title = b.ariaLabel = on ? "Remove star (s)" : "Star (s)"; return; }
+  if (a === "star") { await toggleStar(m.id); const c = listCache.get(m.id); m.keywords = c ? c.keywords : m.keywords; const b = $("sheet").querySelector('[data-act="star"]'); const on = !!(m.keywords || {}).$flagged; b.classList.toggle("starred", on); b.setAttribute("aria-pressed", on); b.title = on ? "Remove star (s)" : "Star (s)"; b.setAttribute("aria-label", b.title); return; }
   if (a === "forever2") { await jmap([["Email/set", { accountId: S.acct, destroy: [m.id] }, "s"]]); toast("Deleted for good."); return closeAndRefresh(); }
 }
 function closeReading() { S.open = null; $("sheet").hidden = true; $("nothing").hidden = false; $("app").classList.remove("reading"); }
@@ -986,6 +1080,117 @@ $("writeForm").addEventListener("submit", async (e) => {
     $("write").close(); toast("Sent."); refresh(false);
   } catch (err) { $("wErr").textContent = err.message === "AUTH" ? "Please sign in again." : err.message; }
   finally { $("wSend").disabled = false; $("wSend").textContent = "Send"; }
+});
+
+/* ---------- picking several, quick actions, undo ---------- */
+function togglePick(id) { if (S.sel.has(id)) S.sel.delete(id); else S.sel.add(id); drawList(); }
+$("pickAll").onchange = () => { if ($("pickAll").checked) S.ids.forEach((id) => S.sel.add(id)); else S.sel.clear(); drawList(); };
+$("bulk").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-bulk]"); if (!b) return;
+  if (b.dataset.bulk === "clear") { S.sel.clear(); drawList(); return; }
+  bulk(b.dataset.bulk, [...S.sel]).catch(fail);
+});
+/* Archive, Bin, read and unread for one or many messages, with Undo for moves. */
+async function bulk(what, ids) {
+  ids = ids.filter((id) => listCache.has(id)); if (!ids.length) return;
+  if (what === "read" || what === "unread") {
+    const on = what === "read", update = {};
+    for (const id of ids) update[id] = { "keywords/$seen": on ? true : null };
+    await jmap([["Email/set", { accountId: S.acct, update }, "s"]]);
+    S.sel.clear(); S.unreadInbox = null;
+    toast(ids.length === 1 ? (on ? "Marked as read." : "Marked as unread.") : `${ids.length} marked as ${on ? "read" : "unread"}.`);
+    return refresh(false);
+  }
+  const to = role(what === "archive" ? "archive" : "trash");
+  if (!to) throw new MailError(`There's no ${what === "archive" ? "Archive" : "Bin"} folder.`);
+  const before = {}, update = {};
+  for (const id of ids) { const m = listCache.get(id); before[id] = { ...(m.mailboxIds || {}) }; update[id] = { mailboxIds: { [to.id]: true } }; }
+  /* take them off the list straight away, then tell the server */
+  S.ids = S.ids.filter((id) => !ids.includes(id)); S.total = Math.max(0, S.total - ids.length); S.sel.clear();
+  if (ids.includes(S.open)) closeReading();
+  drawList();
+  try { await jmap([["Email/set", { accountId: S.acct, update }, "s"]]); }
+  catch (err) { await refresh(false); throw err; }
+  const n = ids.length, word = what === "archive" ? "Archived" : "Moved to the Bin";
+  toast(n === 1 ? `${word}.` : `${word}: ${n} messages.`, async () => {
+    const back = {}; for (const id of ids) back[id] = { mailboxIds: before[id] };
+    try { await jmap([["Email/set", { accountId: S.acct, update: back }, "s"]]); toast("Undone."); } catch (err) { fail(err); }
+    refresh(false);
+  });
+  loadBoxes().catch(() => {});
+}
+
+/* ---------- swipe on phones: right = archive (or Bin), left = Bin ---------- */
+const swipe = { li: null, x0: 0, y0: 0, dx: 0, on: false, moved: false };
+$("msgs").addEventListener("pointerdown", (e) => {
+  if (e.pointerType !== "touch" || S.sel.size) return;
+  const li = e.target.closest("li[data-li]"); if (!li || e.target.closest(".star,.pick,.q")) return;
+  Object.assign(swipe, { li, x0: e.clientX, y0: e.clientY, dx: 0, on: false, moved: false });
+});
+$("msgs").addEventListener("pointermove", (e) => {
+  if (!swipe.li) return;
+  const dx = e.clientX - swipe.x0, dy = e.clientY - swipe.y0;
+  if (!swipe.on) { if (Math.abs(dy) > 12) { swipe.li = null; return; } if (Math.abs(dx) < 14) return; swipe.on = true; swipe.li.classList.add("swiping"); }
+  const inTrash = S.box && S.box.role === "trash"; if (inTrash && dx < 0) return;
+  swipe.dx = dx; swipe.li.querySelector(".row").style.transform = `translateX(${dx}px)`;
+  swipe.li.classList.toggle("go-l", dx > 0); swipe.li.classList.toggle("go-r", dx < 0);
+  swipe.li.classList.toggle("armed", Math.abs(dx) > 96);
+});
+function endSwipe() {
+  const s = swipe; if (!s.li) return; const li = s.li, row = li.querySelector(".row"); s.li = null;
+  if (!s.on) return; s.moved = true;
+  const id = li.dataset.li, far = Math.abs(s.dx) > 96;
+  if (far) {
+    row.style.transition = "transform .18s ease-in"; row.style.transform = `translateX(${s.dx > 0 ? "110%" : "-110%"})`;
+    const canArchive = S.box && S.box.role !== "archive" && S.box.role !== "trash" && role("archive");
+    setTimeout(() => bulk(s.dx > 0 && canArchive ? "archive" : "bin", [id]).catch(fail), 170);
+  } else { row.style.transition = "transform .18s ease-out"; row.style.transform = ""; li.classList.remove("swiping", "armed", "go-l", "go-r"); setTimeout(() => (row.style.transition = ""), 200); }
+}
+$("msgs").addEventListener("pointerup", endSwipe);
+$("msgs").addEventListener("pointercancel", endSwipe);
+
+/* ---------- keyboard ---------- */
+$("keysBtn").onclick = () => { $("mePop").hidden = true; $("keys").showModal(); };
+$("keysClose").onclick = () => $("keys").close();
+function moveCur(step) {
+  if (!S.ids.length) return;
+  let i = S.ids.indexOf(S.cur ?? S.open); i = i < 0 ? 0 : Math.min(S.ids.length - 1, Math.max(0, i + step));
+  S.cur = S.ids[i]; drawList();
+  const li = document.querySelector(`li[data-li="${CSS.escape(S.cur)}"]`); if (li) li.scrollIntoView({ block: "nearest" });
+  if (S.open && innerWidth > 820) openMsg(S.cur).catch(fail);
+}
+let gPending = 0;
+document.addEventListener("keydown", (e) => {
+  if ($("app").hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+  if ($("write").open || $("keys").open) return;
+  const t = e.target; if (t && (t.closest("input,textarea,select,[contenteditable]"))) { if (e.key === "Escape" && t.id === "q") t.blur(); return; }
+  const k = e.key, target = S.open || S.cur;
+  if (gPending && Date.now() - gPending < 1200) {
+    gPending = 0; const r = { i: "inbox", s: "sent", d: "drafts", a: "archive", t: "trash" }[k];
+    if (r) { const b = role(r); if (b) { S.box = b; S.q = ""; $("q").value = ""; closeReading(); drawBoxes(); loadList().catch(fail); } e.preventDefault(); }
+    return;
+  }
+  const go = (fn) => { e.preventDefault(); fn(); };
+  if (k === "?") return go(() => $("keys").showModal());
+  if (k === "c") return go(() => openWrite("new"));
+  if (k === "/") return go(() => $("q").focus());
+  if (k === "g") { gPending = Date.now(); return; }
+  if (k === "j" || k === "ArrowDown") return go(() => moveCur(1));
+  if (k === "k" || k === "ArrowUp") return go(() => moveCur(-1));
+  if (k === "Escape") { if (S.sel.size) return go(() => { S.sel.clear(); drawList(); }); if (S.open) return go(() => { closeReading(); drawList(); }); return; }
+  if (k === "u" && S.open) return go(() => { closeReading(); drawList(); });
+  if ((k === "Enter" || k === "o") && S.cur && !S.open) return go(() => openMsg(S.cur).catch(fail));
+  if (k === "x" && S.cur) return go(() => togglePick(S.cur));
+  const many = S.sel.size ? [...S.sel] : target ? [target] : [];
+  if (k === "e" && many.length && role("archive") && S.box.role !== "archive") return go(() => bulk("archive", many).catch(fail));
+  if (k === "#" && many.length && S.box.role !== "trash") return go(() => bulk("bin", many).catch(fail));
+  if (k === "U" && many.length) return go(() => bulk("unread", many).catch(fail));
+  if (k === "I" && many.length) return go(() => bulk("read", many).catch(fail));
+  if (k === "s" && target) return go(() => { if (S.open) $("sheet").querySelector('[data-act="star"]').click(); else toggleStar(target); });
+  if (S.open && (k === "r" || k === "a" || k === "f")) {
+    const btn = $("sheet").querySelector(`.replybar [data-act="${{ r: "reply", a: "all", f: "fwd" }[k]}"]`) || (k === "a" ? $("sheet").querySelector('.replybar [data-act="reply"]') : null);
+    if (btn) return go(() => btn.click());
+  }
 });
 
 /* ---------- theme ---------- */
