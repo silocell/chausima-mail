@@ -31,6 +31,7 @@ import { useEffect, useState } from 'react';
 import { useIsCommunity } from '@/hooks/usePermissions';
 import { SIDEBAR_ID } from './sidebarContext';
 import { useLayoutNavigation } from './useLayoutNavigation';
+import { SecurityAlerts } from './SecurityAlerts';
 
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
 
@@ -118,6 +119,8 @@ export function TopBar() {
         </Button>
 
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+
+        <SecurityAlerts />
 
         <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={t('toggleTheme', 'Toggle theme')}>
           {theme === 'light' ? (
