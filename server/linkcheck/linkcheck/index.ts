@@ -86,13 +86,13 @@ export function pageText(html: string): { title: string; text: string } {
   return { title, text: t };
 }
 
-async function guard(text: string): Promise<{ ok: boolean; hits: string[] } | undefined> {
+async function guard(text: string, extra = ""): Promise<{ ok: boolean; hits: string[] } | undefined> {
   const keys = ["GROQ_API_KEY", "GROQ_API_KEY_2"].map((k) => Deno.env.get(k)).filter(Boolean) as string[];
   for (const key of keys) {
     try {
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({ model: SAFEGUARD, reasoning_effort: "low", temperature: 0, max_tokens: 400,
-          messages: [{ role: "system", content: POLICY }, { role: "user", content: "WEB PAGE A PUPIL WANTS TO OPEN:\n" + text.slice(0, 6000) }] }),
+          messages: [{ role: "system", content: POLICY + extra }, { role: "user", content: "WEB PAGE A PUPIL WANTS TO OPEN:\n" + text.slice(0, 6000) }] }),
         signal: AbortSignal.timeout(GUARD_MS) });
       if (r.ok) { const v = sgVerdict((await r.json()).choices?.[0]?.message?.content ?? ""); if (v) return v; }
       else if (r.status !== 429) break;
@@ -133,6 +133,13 @@ async function read(u: URL): Promise<{ title: string; text: string; desc: string
 const cache = new Map<string, { at: number; res: Record<string, unknown> }>();
 const rate = new Map<string, { at: number; n: number }>();
 const SIX_H = 6 * 3600_000;
+/* The HWL Browser apps ask for YouTube videos to be judged like a UK "15" rating. */
+const AGE15 = `
+
+## YouTube videos (this request)
+The viewer is about 15. Judge the video like a UK "15" film rating: strong language, crude humour, scary or horror themes, fighting in games and films, and moderate violence are all fine (0).
+Still a violation: sexual or pornographic content, nudity, graphic gore, real instructions for harm, hate, or self-harm content.
+A video being marked 18+ by its creator is not by itself a violation: judge what it actually is.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -143,39 +150,40 @@ Deno.serve(async (req) => {
   const app = (req.headers.get("x-hwl-app") ?? "").startsWith("hwl-browser");
   if (!who?.user && !app) return json({ ok: false, reason: "Sign in on the Homework Launchpad to open web pages." }, 401);
   const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  let body: { url?: string } = {}; try { body = await req.json(); } catch { /* empty */ }
+  let body: { url?: string; age?: number } = {}; try { body = await req.json(); } catch { /* empty */ }
   const u = safeUrl(String(body.url ?? ""));
   if (!u) return json({ ok: false, reason: "That address can't be opened here." });
   const host = u.hostname.toLowerCase();
   if (TRUSTED.test(host)) return json({ ok: true, trusted: true });
-  const key = u.toString(), hostKey = "host:" + host, now = Date.now();
+  const age15 = body.age === 15;
+  const key = u.toString() + (age15 ? "#15" : ""), hostKey = "host:" + host, now = Date.now();
   const hc = cache.get(hostKey); if (hc && now - hc.at < SIX_H) return json({ ...hc.res, cached: true });
   const pc = cache.get(key); if (pc && now - pc.at < SIX_H) return json({ ...pc.res, cached: true });
-  let sample = "";
+  let sample = "", extra = "";
   if (/(^|\.)(youtube\.com|youtube-nocookie\.com|youtu\.be)$/i.test(host)) {
-    const id = key.match(/(?:embed\/|v=|youtu\.be\/)([\w-]{6,})/)?.[1];
+    const id = u.toString().match(/(?:embed\/|shorts\/|live\/|v=|youtu\.be\/)([\w-]{6,})/)?.[1];
     if (!id) return json({ ok: false, reason: "Only single YouTube videos can be opened here." });
     try {
       const r = await fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + id), { signal: AbortSignal.timeout(PAGE_MS) });
       if (!r.ok) return json({ ok: false, reason: "That video isn't available." });
-      const o = await r.json(); sample = `YouTube video\nTitle: ${o.title}\nChannel: ${o.author_name}`;
+      const o = await r.json(); sample = `YouTube video\nTitle: ${o.title}\nChannel: ${o.author_name}`; if (age15) extra = AGE15;
     } catch { return json({ ok: false, reason: "Couldn't look up that video just now." }); }
   } else {
     const page = await read(u);
     if (page === null) return json({ ok: false, reason: "That address can't be opened here." });
-    sample = `Address: ${key}\nTitle: ${page.title}\nDescription: ${page.desc}\n\n${page.text}`;
+    sample = `Address: ${u.toString()}\nTitle: ${page.title}\nDescription: ${page.desc}\n\n${page.text}`;
   }
   if (!who?.user) {   // the HWL Browser apps: at most 120 fresh checks an hour per connection
     const now2 = Date.now(), r = rate.get(ip);
     if (!r || now2 - r.at > 3600_000) rate.set(ip, { at: now2, n: 1 });
     else if (++r.n > 120) return json({ ok: false, reason: "That's a lot of new websites in a short time. Try again in a few minutes." });
   }
-  const v = await guard(sample);
+  const v = await guard(sample, extra);
   let res: Record<string, unknown>;
   if (!v) res = { ok: false, reason: "The safety check isn't answering right now, so this page stays closed. Try again in a minute." };
   else if (v.ok) res = { ok: true };
   else res = { ok: false, reason: `This page isn't suitable for school (${v.hits.join(", ")}).` };
-  if (v) { cache.set(key, { at: now, res }); if (!v.ok) cache.set(hostKey, { at: now, res }); }
+  if (v) { cache.set(key, { at: now, res }); if (!v.ok && !extra && !sample.startsWith("YouTube video")) cache.set(hostKey, { at: now, res }); }
   if (cache.size > 5000) cache.clear();
   return json(res);
 });
