@@ -1,7 +1,7 @@
 /* linkcheck: is a web page OK to show a pupil in HWL OS's Browser?
    The server reads the page (never private or internal addresses), then the same school-safety
    check as the Launchpad AI (gpt-oss-safeguard on Groq, then Llama Guard on Cloudflare) decides.
-   Signed-in Launchpad users only. Answers are remembered for 6 hours. If nothing can check a page,
+   Signed-in Launchpad users, and the HWL Browser apps (120 fresh checks an hour per connection). Answers are remembered for 6 hours. If nothing can check a page,
    it stays blocked, except trusted learning sites. YouTube videos are checked by their title. */
 import { createClient } from "jsr:@supabase/supabase-js@2";
 const CF_ACCOUNT = "fc6f56f0a20877232943b4d37db90086";
@@ -131,6 +131,7 @@ async function read(u: URL): Promise<{ title: string; text: string; desc: string
 }
 
 const cache = new Map<string, { at: number; res: Record<string, unknown> }>();
+const rate = new Map<string, { at: number; n: number }>();
 const SIX_H = 6 * 3600_000;
 
 Deno.serve(async (req) => {
@@ -139,7 +140,9 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("authorization") ?? "";
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
   const { data: who } = await db.auth.getUser().catch(() => ({ data: { user: null } }));
-  if (!who?.user) return json({ ok: false, reason: "Sign in on the Homework Launchpad to open web pages." }, 401);
+  const app = (req.headers.get("x-hwl-app") ?? "").startsWith("hwl-browser");
+  if (!who?.user && !app) return json({ ok: false, reason: "Sign in on the Homework Launchpad to open web pages." }, 401);
+  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
   let body: { url?: string } = {}; try { body = await req.json(); } catch { /* empty */ }
   const u = safeUrl(String(body.url ?? ""));
   if (!u) return json({ ok: false, reason: "That address can't be opened here." });
@@ -161,6 +164,11 @@ Deno.serve(async (req) => {
     const page = await read(u);
     if (page === null) return json({ ok: false, reason: "That address can't be opened here." });
     sample = `Address: ${key}\nTitle: ${page.title}\nDescription: ${page.desc}\n\n${page.text}`;
+  }
+  if (!who?.user) {   // the HWL Browser apps: at most 120 fresh checks an hour per connection
+    const now2 = Date.now(), r = rate.get(ip);
+    if (!r || now2 - r.at > 3600_000) rate.set(ip, { at: now2, n: 1 });
+    else if (++r.n > 120) return json({ ok: false, reason: "That's a lot of new websites in a short time. Try again in a few minutes." });
   }
   const v = await guard(sample);
   let res: Record<string, unknown>;
