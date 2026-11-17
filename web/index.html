@@ -354,6 +354,21 @@ kbd{display:inline-block;min-width:24px;text-align:center;padding:2px 7px;border
 </style>
 </head>
 <body>
+<div id="cmSleep" hidden role="alertdialog" aria-modal="true" style="position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;padding:16px;background:#0f172a;color:#e2e8f0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+  <div style="max-width:440px;background:#1e293b;border:1px solid #334155;border-radius:20px;padding:28px 24px;text-align:center">
+    <h1 style="margin:0 0 8px;font-size:1.5rem;color:#fff">Chausima Mail is asleep 😴</h1>
+    <p style="margin:0;color:#cbd5e1">Mail sleeps from 11 pm to 6 am (UK time). New emails still arrive and are kept safe; you'll see them at 6 am.</p>
+  </div>
+</div>
+<script>
+/* Sleep mode: 11 pm - 6 am UK time (the server keeps accepting mail and holds it until then) */
+(function () {
+  var box = document.getElementById("cmSleep");
+  function asleep() { try { var h = parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", hour12: false }).format(new Date()), 10) % 24; return h >= 23 || h < 6; } catch (e) { return false; } }
+  function tick() { var a = asleep(); box.hidden = !a; box.style.display = a ? "flex" : "none"; document.documentElement.style.overflow = a ? "hidden" : ""; }
+  tick(); setInterval(tick, 30000); document.addEventListener("visibilitychange", tick);
+})();
+</script>
 
 <!-- ======================= sign in ======================= -->
 <main id="signin" hidden>
