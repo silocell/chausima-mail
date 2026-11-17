@@ -357,14 +357,34 @@ kbd{display:inline-block;min-width:24px;text-align:center;padding:2px 7px;border
 <div id="cmSleep" hidden role="alertdialog" aria-modal="true" style="position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;padding:16px;background:#0f172a;color:#e2e8f0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
   <div style="max-width:440px;background:#1e293b;border:1px solid #334155;border-radius:20px;padding:28px 24px;text-align:center">
     <h1 style="margin:0 0 8px;font-size:1.5rem;color:#fff">Chausima Mail is asleep 😴</h1>
-    <p style="margin:0;color:#cbd5e1">Mail sleeps from 11 pm to 6 am (UK time). New emails still arrive and are kept safe; you'll see them at 6 am.</p>
+    <p style="margin:0;color:#cbd5e1">Mail sleeps at night: 11 pm - 6 am on school nights, 1 - 6 am at weekends and in the holidays (UK time). New emails still arrive and are kept safe; you'll see them at 6 am.</p>
   </div>
 </div>
 <script>
-/* Sleep mode: 11 pm - 6 am UK time (the server keeps accepting mail and holds it until then) */
+/* Sleep mode (the server keeps accepting mail and holds it until then) */
 (function () {
   var box = document.getElementById("cmSleep");
-  function asleep() { try { var h = parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", hour12: false }).format(new Date()), 10) % 24; return h >= 23 || h < 6; } catch (e) { return false; } }
+  /* Late nights (weekends: Fri, Sat and Sun nights; school holidays and the night before them):
+     maintenance 12-1 am and sleep 1-6 am, instead of 8-11 pm and 11 pm-6 am. School days off (Hatch End
+     High School 2026-27, INSET days and bank holidays included): */
+  var HOLS = [["2026-12-18", "2027-01-03"], ["2027-02-15", "2027-02-19"], ["2027-03-26", "2027-04-11"], ["2027-05-03", "2027-05-03"],
+              ["2027-05-31", "2027-06-04"], ["2027-07-17", "2027-08-31"]];
+  function ukNow() {
+    var p = {}; new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false })
+      .formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
+    return { day: Date.UTC(+p.year, +p.month - 1, +p.day), h: parseInt(p.hour, 10) % 24 };
+  }
+  function iso(t) { return new Date(t).toISOString().slice(0, 10); }
+  function holiday(t) { var d = iso(t); for (var i = 0; i < HOLS.length; i++) if (d >= HOLS[i][0] && d <= HOLS[i][1]) return true; return false; }
+  function lateNight(t) { var w = new Date(t).getUTCDay(); return w === 5 || w === 6 || w === 0 || holiday(t) || holiday(t + 864e5); }
+  function asleep() {
+    try {
+      var n = ukNow();
+      if (n.h >= 23) return !lateNight(n.day);
+      if (n.h < 6) return n.h >= 1 || !lateNight(n.day - 864e5);
+      return false;
+    } catch (e) { return false; }
+  }
   function tick() { var a = asleep(); box.hidden = !a; box.style.display = a ? "flex" : "none"; document.documentElement.style.overflow = a ? "hidden" : ""; }
   tick(); setInterval(tick, 30000); document.addEventListener("visibilitychange", tick);
 })();
