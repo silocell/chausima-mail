@@ -6,6 +6,7 @@ set -e
 HERE=$(cd "$(dirname "$0")" && pwd); CF=/etc/caddy/Caddyfile; D=/srv/hwl-net
 sudo mkdir -p $D
 sudo cp "$HERE/index.html" "$HERE/icon.png" $D/
+sudo chmod 755 $D; sudo chmod a+r $D/*; sudo chcon -R -t httpd_sys_content_t $D 2>/dev/null || true   # let Caddy read it (SELinux)
 sudo cp $CF $CF.before-net
 if ! sudo grep -q '^net.chausima.com' $CF; then
   sudo tee -a $CF >/dev/null <<'C'
