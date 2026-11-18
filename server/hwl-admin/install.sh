@@ -7,7 +7,7 @@
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd); CF=/etc/caddy/Caddyfile
 sudo install -D -m 700 "$HERE/agent.py" /usr/local/lib/hwl-admin/agent.py
-sudo touch /var/log/hwl-admin.log; sudo chmod 600 /var/log/hwl-admin.log; sudo chattr +a /var/log/hwl-admin.log 2>/dev/null || true
+sudo touch /var/log/hwl-admin.log; sudo chmod 600 /var/log/hwl-admin.log 2>/dev/null || true; sudo chattr +a /var/log/hwl-admin.log 2>/dev/null || true   # already append-only on a re-run: fine
 sudo tee /etc/systemd/system/hwl-admin.service >/dev/null <<'U'
 [Unit]
 Description=HWL Admin agent (127.0.0.1:8711)
