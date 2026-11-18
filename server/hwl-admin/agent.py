@@ -63,7 +63,17 @@ def boot_clear():
 
 
 # Lockdown keeps only what HWL Admin needs to sign you in (so you can turn it off again); everything else stops.
-KEEP = set(os.environ.get("HWL_LOCK_KEEP", "supabase-db supabase-auth supabase-kong").split())
+KEEP_RE = re.compile(r"supabase.*?[-_.](db|auth|kong)([-_.]\d+)?$|^(db|auth|kong)$")
+
+
+def keep_names(running):
+    """The database, sign-in and gateway containers, whatever compose named them. Empty if any of the three is missing."""
+    found = {}
+    for n in running:
+        m = KEEP_RE.search(n)
+        if m:
+            found[m.group(1) or m.group(3)] = n
+    return set(found.values()) if len(found) == 3 else set()
 SUITE = "cryptpad"
 LOCK_LOCK = threading.Lock()
 
@@ -76,7 +86,12 @@ def lockdown_apply(who="system", ip="-"):
         if SUITE in running:
             run(["docker", "stop", "-t", "60", SUITE], timeout=120)
             stopped.append(SUITE)
-        rest = [n for n in running if n not in KEEP and n != SUITE]
+        keep = keep_names(running)
+        if not keep:   # never lock you out of HWL Admin: stop only the Suite and leave the rest
+            audit(who, ip, "lockdown_stopped", "couldn't find sign-in containers - only the Suite stopped", "failed")
+            state_write(lock_stopped=sorted(set(stopped)))
+            return
+        rest = [n for n in running if n not in keep and n != SUITE]
         if rest:
             run(["docker", "stop", "-t", "2"] + rest, timeout=300)
             stopped += rest
@@ -320,6 +335,8 @@ def act(body, who, ip):
         msg = str(body.get("message") or "").strip()[:300]
         if on and str(body.get("confirm", "")).strip().upper() != "LOCKDOWN":
             raise ValueError("Type LOCKDOWN to shut the server down.")
+        if on and not keep_names(run(["docker", "ps", "--format", "{{.Names}}"], timeout=20)[0].split()):
+            raise ValueError("Can't find the sign-in services (database, auth, gateway), so lockdown would lock you out too. Nothing was changed.")
         if on == bool(state_read().get("lock")):
             return {"state": state_public()}
         state_write(lock=on, lock_msg=msg if on else "", lock_at=time.time() if on else 0)
