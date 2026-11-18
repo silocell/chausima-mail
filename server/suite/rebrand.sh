@@ -20,7 +20,7 @@ swaps = [
   ("h('a', {href:\"https://cryptpad.org\", role: 'button'}", "h('a', {href:\"https://chausima.com\", role: 'button'}"),
   ("h('span.logo-font', 'CryptPad')", "h('span.logo-font', 'Chausima Suite')"),
   ("footLink('https://cryptpad.org', null, Msg.footer_website, 'link')",             # keep the source credit (AGPL)
-   "footLink('https://github.com/cryptpad/cryptpad', null, 'Built on CryptPad (source code)', 'link')"),
+   "footLink('https://github.com/cryptpad/cryptpad', null, 'Built on CryptPad (source code)', 'link'), footLink('https://suite.civilinitiatives.org/?classic=1', null, 'Classic Launchpad Suite', 'link')"),
   ("'https://docs.cryptpad.org'", "'https://about.chausima.com'"),
 ]
 for a, b in swaps:
