@@ -12,7 +12,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { usernameProblem, nameProblem } from "./names.ts";
 
-const ISSUER = "https://hehs-live.duckdns.org/chausima-id";
+const ISSUER = Deno.env.get("CHZ_ISSUER") || "https://hehs-live.duckdns.org/chausima-id";
 const ACCOUNT_PAGE = "https://chausima.com/account/";
 const DOMAIN = "chausima.com";
 const SESSION_DAYS = 30;
@@ -129,7 +129,9 @@ Deno.serve(async (req) => {
     const p = url.searchParams, cid = p.get("client_id") ?? "", ru = p.get("redirect_uri") ?? "", c = clients[cid];
     if (!c || !c.redirect.includes(ru)) return new Response("This app isn't allowed to use Sign in with Chausima.", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
     if (p.get("response_type") !== "code") return Response.redirect(ru + (ru.includes("?") ? "&" : "?") + "error=unsupported_response_type", 302);
-    const r = await sign({ use: "authreq", cid, ru, st: p.get("state") ?? "", n: p.get("nonce") ?? "", app: c.name ?? cid, exp: now() + 900 });
+    const cc = p.get("code_challenge") ?? "", ccm = p.get("code_challenge_method") ?? "";
+    if (cc && ccm !== "S256") return Response.redirect(ru + (ru.includes("?") ? "&" : "?") + "error=invalid_request", 302);
+    const r = await sign({ use: "authreq", cid, ru, st: p.get("state") ?? "", n: p.get("nonce") ?? "", cc, app: c.name ?? cid, exp: now() + 900 });
     return Response.redirect(ACCOUNT_PAGE + "?sso=" + encodeURIComponent(r), 302);
   }
   if (path === "/token" && req.method === "POST") {
@@ -138,6 +140,10 @@ Deno.serve(async (req) => {
     if (form.get("grant_type") !== "authorization_code") return json({ error: "unsupported_grant_type" }, 400);
     const code = await verify(form.get("code") ?? "", "code");
     if (!code || code.cid !== cl.id || code.ru !== form.get("redirect_uri") || usedCodes.has(code.j)) return json({ error: "invalid_grant" }, 400);
+    if (code.cc) {   // PKCE: the app must prove it's the one that started this sign-in
+      const v = form.get("code_verifier") ?? "";
+      if (!v || b64u(await crypto.subtle.digest("SHA-256", enc.encode(v))) !== code.cc) return json({ error: "invalid_grant" }, 400);
+    }
     usedCodes.set(code.j, code.exp); for (const [k, e] of usedCodes) if (e < now()) usedCodes.delete(k);
     const { data } = await db.from("chausima_accounts").select("id,username,name,pass,disabled").eq("id", code.sub).maybeSingle();
     const a = data as Acct | null; if (!a || a.disabled) return json({ error: "invalid_grant" }, 400);
@@ -198,7 +204,7 @@ Deno.serve(async (req) => {
   if (path === "/approve") {
     const b = await body(); const r = await verify(String(b.req ?? ""), "authreq");
     if (!r || !clients[r.cid] || !clients[r.cid].redirect.includes(r.ru)) return json({ ok: false, reason: "That sign-in link has expired. Go back to the app and try again." });
-    const code = await sign({ use: "code", j: b64u(crypto.getRandomValues(new Uint8Array(12))), sub: me.id, cid: r.cid, ru: r.ru, n: r.n, exp: now() + 120 });
+    const code = await sign({ use: "code", j: b64u(crypto.getRandomValues(new Uint8Array(12))), sub: me.id, cid: r.cid, ru: r.ru, n: r.n, cc: r.cc, exp: now() + 120 });
     const q = new URLSearchParams({ code, ...(r.st ? { state: r.st } : {}) });
     return json({ ok: true, app: r.app, redirect: r.ru + (r.ru.includes("?") ? "&" : "?") + q.toString() });
   }
