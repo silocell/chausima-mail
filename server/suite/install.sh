@@ -123,3 +123,6 @@ sleep 5
 T=$(docker logs cryptpad 2>&1 | grep -o 'https://[^ ]*/install/#[A-Za-z0-9+/=_-]*' | tail -1)
 if [ -n "$T" ]; then echo; echo "ADMIN SET-UP LINK - open it once, yourself, to make the Suite's admin account (don't share it):"; echo "$T"
 else echo "(no set-up link: an admin account already exists)"; fi
+
+# Chausima look
+bash "$HERE/rebrand.sh" || true
