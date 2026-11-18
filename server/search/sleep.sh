@@ -47,6 +47,7 @@ holiday() { while read -r a b; do [ -n "$a" ] && [[ ! "$1" < "$a" ]] && [[ ! "$1
 late() { local w; w=$(date -d "$1" +%u); [ "$w" -ge 5 ] || holiday "$1" || holiday "$(date -d "$1 +1 day" +%F)"; }
 phase() {   # what the time calls for right now: day | maint | sleep | deep
   local t D; t=$((10#$(date +%H%M))); if [ $t -ge 1200 ]; then D=$(date +%F); else D=$(date -d yesterday +%F); fi
+  [ "$(cat /var/lib/hwl-sleep/skip 2>/dev/null)" = "$D" ] && { echo day; return; }   # HWL Admin: "skip tonight"
   if [ $t -ge 300 ] && [ $t -lt 540 ]; then echo deep; return; fi
   if late "$D"; then
     if [ $t -lt 100 ]; then echo maint; elif [ $t -lt 300 ]; then echo sleep; else echo day; fi
