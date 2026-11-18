@@ -87,6 +87,9 @@ P
 chmod 644 $FN/clients.json
 ( cd /home/opc/supabase && docker compose up -d --force-recreate --no-deps functions >/dev/null 2>&1 || docker restart supabase-edge-functions >/dev/null )
 
+# CryptPad's own parts talk to each other on "localhost", which inside the container can mean IPv6 (::1) while they
+# listen on IPv4: they never meet and it crashes with INTERFACE_UNEXPECTED_ERROR. Point them at 127.0.0.1 (also fixes old installs).
+sed -i 's/host: "localhost"/host: "127.0.0.1"/g' $D/config/infra.js
 say "start CryptPad"
 docker rm -f cryptpad >/dev/null 2>&1 || true
 docker run -d --name cryptpad --hostname cryptpad --restart unless-stopped -p 127.0.0.1:3100:3000 \
