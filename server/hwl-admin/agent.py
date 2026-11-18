@@ -174,6 +174,28 @@ def delete_user(uid, confirm, who):
     return target["email"]
 
 
+def rest(method, path, body=None):
+    """The database's REST door (PostgREST), as the server itself."""
+    _, _, svc = secrets()
+    req = urllib.request.Request(GOTRUE + "/rest/v1/" + path, method=method, data=json.dumps(body).encode() if body is not None else None,
+                                 headers={"apikey": svc, "Authorization": "Bearer " + svc, "content-type": "application/json", "Prefer": "return=representation"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        t = r.read().decode() or "[]"
+    return json.loads(t)
+
+
+KEEP_CHZ = {"shiv"}   # the owner's own Chausima account can't be deleted or turned off from here
+
+
+def chz_find(uid):
+    if not re.fullmatch(r"[0-9a-f-]{36}", uid or ""):
+        raise ValueError("Unknown account.")
+    rows = rest("GET", "chausima_accounts?select=id,username,name,disabled&id=eq." + uid)
+    if not rows:
+        raise ValueError("That account isn't there any more.")
+    return rows[0]
+
+
 SPEEDS = {"gentle": 120, "normal": 400, "fast": 1000, "max": 1500}
 
 
@@ -183,6 +205,10 @@ def act(body, who, ip):
         return status()
     if a == "users":
         return {"users": users(int(body.get("page") or 1))}
+    if a == "chz_users":
+        rows = rest("GET", "chausima_accounts?select=id,username,name,created_at,last_login,disabled&order=created_at.desc&limit=1000")
+        return {"users": [{"id": x["id"], "username": x["username"], "name": x["name"], "created": (x.get("created_at") or "")[:16],
+                           "last": (x.get("last_login") or "")[:16], "disabled": bool(x.get("disabled"))} for x in rows]}
     if a == "audit":
         try:
             lines = open(LOG).read().splitlines()[-300:]
@@ -239,6 +265,23 @@ def act(body, who, ip):
                                        "crawlingQ": "on", "storeHTCache": "on", "crawlOrder": "on", "mustmatch": ".*" + re.escape(host) + ".*"})
         audit(who, ip, a, "%s depth %d" % (url, depth))
         return {"queued": url}
+    if a == "chz_disable":
+        x = chz_find(body.get("id"))
+        if x["username"] in KEEP_CHZ:
+            raise ValueError("Your own Chausima account can't be turned off from here.")
+        off = bool(body.get("off"))
+        rest("PATCH", "chausima_accounts?id=eq." + x["id"], {"disabled": off})
+        audit(who, ip, a, "%s@chausima.com %s" % (x["username"], "off" if off else "on"))
+        return {"disabled": off}
+    if a == "chz_delete":
+        x = chz_find(body.get("id"))
+        if x["username"] in KEEP_CHZ:
+            raise ValueError("Your own Chausima account can't be deleted from here.")
+        if (body.get("confirm") or "").strip().lower().replace("@chausima.com", "") != x["username"]:
+            raise ValueError("Type the username exactly to confirm.")
+        rest("DELETE", "chausima_accounts?id=eq." + x["id"])
+        audit(who, ip, a, x["username"] + "@chausima.com")
+        return {"deleted": x["username"]}
     if a == "delete_user":
         email = delete_user(body.get("id"), body.get("confirm"), who)
         audit(who, ip, a, email)
