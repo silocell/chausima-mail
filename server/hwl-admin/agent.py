@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 os.environ["TZ"] = "Europe/London"
 time.tzset()
 ADMINS = {"shiv@chausima.com", "shivkforindia@gmail.com"}
-ORIGINS = {"https://maintenance.civilinitiatives.org", "https://civilinitiatives.org"}
+ORIGINS = {"https://admin.chausima.com", "https://maintenance.civilinitiatives.org", "https://civilinitiatives.org"}
 SB = os.environ.get("HWL_SB", "/home/opc/supabase")
 LOG = os.environ.get("HWL_LOG", "/var/log/hwl-admin.log")
 GOTRUE = os.environ.get("HWL_GOTRUE", "http://127.0.0.1:8000")
