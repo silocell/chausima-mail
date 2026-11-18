@@ -168,8 +168,12 @@ def check_token(tok):
         with urllib.request.urlopen(req, timeout=8) as r:
             if str(json.load(r).get("email", "")).lower() != email:
                 raise PermissionError("Sign in again.")
-    except urllib.error.HTTPError:
+    except urllib.error.HTTPError as e:
+        if e.code >= 500:
+            raise PermissionError("The sign-in service is restarting. Try again in a minute.")
         raise PermissionError("Sign in again.")
+    except (urllib.error.URLError, OSError):
+        raise PermissionError("The sign-in service is restarting. Try again in a minute.")
     return email
 
 
