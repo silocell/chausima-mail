@@ -9,7 +9,7 @@ mkdir -p /var/backups
 B=/var/backups/check_year_group-$(date +%Y%m%d-%H%M%S).sql
 docker exec supabase-db psql -U postgres -d postgres -tAc "select pg_get_functiondef('public.check_year_group'::regproc)" > $B
 echo "old rule saved: $B  (put it back with: sudo docker exec -i supabase-db psql -U postgres -d postgres < $B)"
-docker exec -i supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+docker exec -i supabase-db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 create table if not exists public.signup_years (
   prefix text primary key check (prefix ~ '^[0-9]{2}$'),
   label  text not null check (char_length(label) between 1 and 40),
