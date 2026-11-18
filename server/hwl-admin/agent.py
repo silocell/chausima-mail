@@ -314,6 +314,8 @@ def act(body, who, ip):
         rows = rest("GET", "chausima_accounts?select=id,username,name,created_at,last_login,disabled&order=created_at.desc&limit=1000")
         return {"users": [{"id": x["id"], "username": x["username"], "name": x["name"], "created": (x.get("created_at") or "")[:16],
                            "last": (x.get("last_login") or "")[:16], "disabled": bool(x.get("disabled"))} for x in rows]}
+    if a == "years":
+        return {"years": rest("GET", "signup_years?select=prefix,label,open&order=prefix.desc")}
     if a == "audit":
         try:
             lines = open(LOG).read().splitlines()[-300:]
@@ -334,6 +336,23 @@ def act(body, who, ip):
         out, rc = run(["docker", "restart", "-t", "30", name], timeout=90)
         audit(who, ip, a, name, "ok" if rc == 0 else "failed")
         return {"done": rc == 0}
+    if a == "year_set":
+        prefix = str(body.get("prefix", ""))
+        if not re.fullmatch(r"[0-9]{2}", prefix):
+            raise ValueError("A year group is the two numbers at the start of the email, like 26.")
+        label = str(body.get("label") or "").strip()[:40]
+        row = {"prefix": prefix, "open": bool(body.get("open"))}
+        if label:
+            row["label"] = label
+        have = rest("GET", "signup_years?prefix=eq." + prefix + "&select=prefix")
+        if have:
+            rest("PATCH", "signup_years?prefix=eq." + prefix, row)
+        else:
+            if not label:
+                raise ValueError("Give the new year group a name, like Year 9.")
+            rest("POST", "signup_years", row)
+        audit(who, ip, a, prefix + (" open" if row["open"] else " closed"))
+        return {"years": rest("GET", "signup_years?select=prefix,label,open&order=prefix.desc")}
     if a == "lockdown":
         on = bool(body.get("on"))
         msg = str(body.get("message") or "").strip()[:300]
