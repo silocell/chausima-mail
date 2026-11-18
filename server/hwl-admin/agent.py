@@ -63,16 +63,17 @@ def boot_clear():
 
 
 # Lockdown keeps only what HWL Admin needs to sign you in (so you can turn it off again); everything else stops.
-KEEP_RE = re.compile(r"supabase.*?[-_.](db|auth|kong)([-_.]\d+)?$|^(db|auth|kong)$")
+KEEP_RE = re.compile(r"^(?:supabase[-_.])?(db|auth|kong|envoy)(?:[-_.]\d+)?$")
+ROLE = {"db": "db", "auth": "auth", "kong": "gateway", "envoy": "gateway"}
 
 
 def keep_names(running):
-    """The database, sign-in and gateway containers, whatever compose named them. Empty if any of the three is missing."""
+    """The database, sign-in and gateway (kong or envoy) containers. Empty if any of the three is missing."""
     found = {}
     for n in running:
-        m = KEEP_RE.search(n)
+        m = KEEP_RE.match(n)
         if m:
-            found[m.group(1) or m.group(3)] = n
+            found[ROLE[m.group(1)]] = n
     return set(found.values()) if len(found) == 3 else set()
 SUITE = "cryptpad"
 LOCK_LOCK = threading.Lock()
