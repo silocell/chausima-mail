@@ -26,9 +26,9 @@ SQL
 echo "table ready"
 echo "== function"
 mkdir -p $FN/chausima-id
-cp "$HERE/chausima-id/index.ts" $FN/chausima-id/index.ts
+cp "$HERE/chausima-id/index.ts" "$HERE/chausima-id/names.ts" $FN/chausima-id/
 [ -f $FN/chausima-id/clients.json ] || echo '{}' > $FN/chausima-id/clients.json
-chmod 644 $FN/chausima-id/index.ts $FN/chausima-id/clients.json
+chmod 644 $FN/chausima-id/*.ts $FN/chausima-id/clients.json
 ( cd $SB && docker compose up -d --force-recreate --no-deps functions >/dev/null 2>&1 || docker restart supabase-edge-functions >/dev/null )
 echo "== Caddy"
 cp $CF $CF.before-chausima-id

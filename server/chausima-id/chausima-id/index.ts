@@ -10,12 +10,12 @@
      /password {old,new}                  /approve {req}  (after signing in on chausima.com/account)
      GET /.well-known/openid-configuration, GET /authorize, POST /token, GET|POST /userinfo, GET /jwks */
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { usernameProblem, nameProblem } from "./names.ts";
 
 const ISSUER = "https://hehs-live.duckdns.org/chausima-id";
 const ACCOUNT_PAGE = "https://chausima.com/account/";
 const DOMAIN = "chausima.com";
 const SESSION_DAYS = 30;
-const RESERVED = /^(admin|administrator|root|support|help|helpdesk|shiv|postmaster|abuse|security|noreply|no-reply|mail|email|chausima|hwl|hwladmin|system|owner|info|webmaster|hostmaster|staff|teacher|moderator|official|test)$/;
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
 const json = (b: unknown, s = 200, h: Record<string, string> = {}) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "content-type": "application/json", "cache-control": "no-store", ...h } });
@@ -159,8 +159,9 @@ Deno.serve(async (req) => {
     if (over("s:" + ip, 5, 3600_000)) return json({ ok: false, reason: "Too many new accounts from here. Try again in an hour." }, 429);
     const b = await body(); const username = cleanUser(b.username), name = String(b.name ?? "").trim().replace(/\s+/g, " "), pw = String(b.password ?? "");
     if (!/^[a-z0-9][a-z0-9._]{2,29}$/.test(username) || /\.\.|\.$/.test(username)) return json({ ok: false, reason: "Usernames are 3–30 letters, numbers, dots or underscores, starting with a letter or number." });
-    if (RESERVED.test(username)) return json({ ok: false, reason: "That username is kept for Chausima. Pick another." });
+    const up = usernameProblem(username); if (up) return json({ ok: false, reason: up });
     if (!name || name.length > 60) return json({ ok: false, reason: "Type your name (up to 60 letters)." });
+    const np = nameProblem(name); if (np) return json({ ok: false, reason: np });
     if (pw.length < 8 || pw.length > 200) return json({ ok: false, reason: "Use a password of at least 8 characters." });
     if (pw.toLowerCase().includes(username)) return json({ ok: false, reason: "Don't put your username in your password." });
     const { data, error } = await db.from("chausima_accounts").insert({ username, name, pass: await hashPw(pw) }).select("id,username,name,pass,disabled").single();
@@ -190,6 +191,7 @@ Deno.serve(async (req) => {
   if (path === "/name") {
     const b = await body(); const name = String(b.name ?? "").trim().replace(/\s+/g, " ");
     if (!name || name.length > 60) return json({ ok: false, reason: "Type your name (up to 60 letters)." });
+    const np = nameProblem(name); if (np) return json({ ok: false, reason: np });
     await db.from("chausima_accounts").update({ name }).eq("id", me.id);
     return json({ ok: true, user: publicUser({ ...me, name }) });
   }
