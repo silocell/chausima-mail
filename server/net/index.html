@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HWL Browser</title>
+<meta name="description" content="Open this link in HWL Browser, the school-safe web browser.">
+<link rel="icon" href="icon.png">
+<style>
+:root{--ink:#1d2433;--soft:#5b6478;--line:#e3e6ef;--blue:#3b6cf0;--card:#f4f6fb;--bg:#fff}
+@media (prefers-color-scheme:dark){:root{--ink:#e7eaf3;--soft:#a3abc2;--line:#2c3346;--card:#1a2030;--bg:#10141f}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+main{width:100%;max-width:460px;text-align:center}
+img{width:84px;height:84px;border-radius:22px}
+h1{font-size:1.6rem;margin:12px 0 4px}
+.what{color:var(--soft);margin:0 0 22px;word-break:break-word}
+.open{display:block;width:100%;border:0;border-radius:999px;padding:14px;font:700 1.05rem inherit;color:#fff;background:var(--blue);text-decoration:none;cursor:pointer}
+.open:focus-visible,.dl a:focus-visible{outline:3px solid #9bb4ff;outline-offset:2px}
+.dl{margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+.dl p{margin:0 0 10px;color:var(--soft);font-size:.95rem}
+.dl a{display:inline-block;margin:4px;padding:9px 14px;border-radius:12px;background:var(--card);color:var(--ink);text-decoration:none;font-weight:600;font-size:.95rem}
+.note{margin-top:20px;font-size:.8rem;color:var(--soft)}
+</style>
+</head>
+<body>
+<main>
+  <img src="icon.png" alt="">
+  <h1>Open in HWL Browser</h1>
+  <p class="what" id="what">The school-safe web browser.</p>
+  <a class="open" id="open" href="#">Open in HWL Browser</a>
+  <div class="dl">
+    <p>Don't have HWL Browser yet?</p>
+    <a id="dla" href="https://github.com/silocell/HEH-Launchpad-Apps/raw/hwl-builds/HWLBrowser.apk">Android</a>
+    <a id="dlw" href="https://github.com/silocell/HEH-Launchpad-Apps/raw/hwl-builds/HWLBrowser.exe">Windows</a>
+    <a id="dll" href="https://github.com/silocell/HEH-Launchpad-Apps/raw/hwl-builds/hwl-browser_1.0_amd64.deb">Linux (.deb)</a>
+    <a href="https://github.com/silocell/HEH-Launchpad-Apps/raw/hwl-builds/HWLBrowser-x86_64.AppImage">Linux (AppImage)</a>
+  </div>
+  <p class="note">Every website is checked to make sure it's OK for school before it opens.</p>
+</main>
+<script>
+/* net.chausima.com/?q=words  searches,  ?u=address  opens a website, both in HWL Browser.
+   Android: an intent:// link opens the app straight away. Windows/Linux: hwlbrowser:// (the app registers it). */
+(function () {
+  var p = new URLSearchParams(location.search), q = (p.get("q") || "").trim(), u = (p.get("u") || "").trim();
+  var qs = u ? "u=" + encodeURIComponent(u) : q ? "q=" + encodeURIComponent(q) : "";
+  var what = document.getElementById("what");
+  if (u) what.textContent = "Open " + u.replace(/^https?:\/\//i, "").slice(0, 80);
+  else if (q) what.textContent = "Search for “" + q.slice(0, 80) + "”";
+  var ua = navigator.userAgent, android = /Android/i.test(ua), ios = /iPhone|iPad|iPod|Macintosh/.test(ua) && "ontouchend" in document;
+  var app = android
+    ? "intent://open" + (qs ? "?" + qs : "") + "#Intent;scheme=hwlbrowser;package=org.civilinitiatives.hwlbrowser;S.browser_fallback_url=" +
+      encodeURIComponent(location.origin + "/?installed=no") + ";end"
+    : "hwlbrowser://open" + (qs ? "?" + qs : "");
+  var btn = document.getElementById("open");
+  btn.href = app;
+  if (ios) { btn.style.display = "none"; what.textContent += " (HWL Browser isn't on iPhone or iPad yet)"; }
+  // highlight the right download for this device
+  var mine = android ? "dla" : /Windows/i.test(ua) ? "dlw" : /Linux|X11/i.test(ua) ? "dll" : null;
+  if (mine) { var m = document.getElementById(mine); m.style.background = "var(--blue)"; m.style.color = "#fff"; }
+  if (p.get("installed") === "no") { btn.textContent = "Try again"; document.querySelector(".dl p").textContent = "HWL Browser isn't installed on this device. Get it here:"; }
+  // try once automatically when there's something to open
+  else if (qs && !ios) setTimeout(function () { location.href = app; }, 300);
+})();
+</script>
+</body>
+</html>
