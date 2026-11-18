@@ -103,6 +103,9 @@ tick() {   # move to whatever the time calls for (only acts when that changes)
   esac
   echo "$want" > $STATE
 }
+# HWL Admin's master switch: while lockdown is on, leave everything stopped (only "status" and "now" work)
+if grep -q '"lock": true' /var/lib/hwl-admin/state.json 2>/dev/null && [ "$1" != status ] && [ "$1" != now ]; then
+  say "lockdown is on - not touching anything ($1)"; exit 0; fi
 case "$1" in
   tick) tick ;;
   boot) sleep 60; tick boot ;;

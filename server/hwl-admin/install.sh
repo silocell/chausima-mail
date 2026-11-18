@@ -36,3 +36,4 @@ else sudo cp $CF.before-hwl-admin $CF; sudo systemctl reload caddy; echo "Caddy:
 sleep 3
 echo "agent: $(systemctl is-active hwl-admin)"
 echo "no sign-in -> $(curl -s -o /dev/null -w '%{http_code}' -X POST https://hehs-live.duckdns.org/hwl-admin/api -d '{}') (should be 403)"
+echo "public state -> $(curl -s https://hehs-live.duckdns.org/hwl-admin/state)"

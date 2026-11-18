@@ -8,7 +8,7 @@ whether that sign-in is still valid. Only a fixed list of actions exists: no she
 Everything that changes something is written to /var/log/hwl-admin.log (append-only; the page can read it,
 nothing here can delete it).
 """
-import base64, hashlib, hmac, json, os, re, subprocess, time, urllib.parse, urllib.request, urllib.error
+import base64, hashlib, hmac, json, os, re, subprocess, threading, time, urllib.parse, urllib.request, urllib.error
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -21,6 +21,92 @@ LOG = os.environ.get("HWL_LOG", "/var/log/hwl-admin.log")
 GOTRUE = os.environ.get("HWL_GOTRUE", "http://127.0.0.1:8000")
 YACY = "http://127.0.0.1:8090"
 SKIP = "/var/lib/hwl-sleep/skip"
+STATE = os.environ.get("HWL_STATE", "/var/lib/hwl-admin/state.json")   # master switch + restart screen, read by every Launchpad page
+
+
+def state_read():
+    try:
+        return json.load(open(STATE))
+    except (OSError, ValueError):
+        return {}
+
+
+def state_write(**kw):
+    s = state_read()
+    s.update(kw)
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    tmp = STATE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(s, f)
+    os.replace(tmp, STATE)
+    return s
+
+
+def state_public():
+    s = state_read()
+    now = time.time()
+    restarting = bool(s.get("restart_kind")) and now < float(s.get("restart_until") or 0)
+    return {"lock": bool(s.get("lock")), "msg": str(s.get("lock_msg") or "")[:300], "restarting": restarting,
+            "kind": s.get("restart_kind") if restarting else "", "until": int(s.get("restart_until") or 0) if restarting else 0}
+
+
+def boot_clear():
+    """A whole-server restart is over once we're running again after the reboot."""
+    s = state_read()
+    if s.get("restart_kind") == "server":
+        try:
+            booted = time.time() - float(open("/proc/uptime").read().split()[0])
+        except OSError:
+            booted = time.time()
+        if booted > float(s.get("restart_at") or 0) or time.time() > float(s.get("restart_until") or 0):
+            state_write(restart_kind="", restart_until=0)
+
+
+# Lockdown keeps only what HWL Admin needs to sign you in (so you can turn it off again); everything else stops.
+KEEP = set(os.environ.get("HWL_LOCK_KEEP", "supabase-db supabase-auth supabase-kong").split())
+SUITE = "cryptpad"
+LOCK_LOCK = threading.Lock()
+
+
+def lockdown_apply(who="system", ip="-"):
+    """Stop the Suite gracefully first (it saves what's open), then everything else straight away."""
+    with LOCK_LOCK:
+        running = [l for l in run(["docker", "ps", "--format", "{{.Names}}"], timeout=20)[0].split() if l]
+        stopped = list(state_read().get("lock_stopped") or [])
+        if SUITE in running:
+            run(["docker", "stop", "-t", "60", SUITE], timeout=120)
+            stopped.append(SUITE)
+        rest = [n for n in running if n not in KEEP and n != SUITE]
+        if rest:
+            run(["docker", "stop", "-t", "2"] + rest, timeout=300)
+            stopped += rest
+        state_write(lock_stopped=sorted(set(stopped)))
+        audit(who, ip, "lockdown_stopped", " ".join(sorted(set(stopped)))[:400])
+
+
+def lockdown_lift(who, ip):
+    with LOCK_LOCK:
+        names = list(state_read().get("lock_stopped") or [])
+        if names:
+            run(["docker", "start"] + names, timeout=600)
+        state_write(lock_stopped=[])
+        # back to whatever the night/day timetable says right now
+        subprocess.run(["/usr/local/bin/hwl-sleep", "tick"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
+        audit(who, ip, "lockdown_started_again", " ".join(names)[:400])
+
+
+def restart_services(who, ip):
+    """Restart every running container, wait for the Launchpad's server to answer, then take the screen down."""
+    try:
+        ids = run(["docker", "ps", "-q"], timeout=20)[0].split()
+        out, rc = run(["docker", "restart", "-t", "30"] + ids, timeout=600) if ids else ("", 0)
+        for _ in range(60):
+            if http_code(GOTRUE + "/auth/v1/health") not in (0, 502, 503, 504):
+                break
+            time.sleep(5)
+        audit(who, ip, "restart_all", "services", "ok" if rc == 0 else "failed")
+    finally:
+        state_write(restart_kind="", restart_until=0)
 
 
 def env(path, key):
@@ -229,6 +315,43 @@ def act(body, who, ip):
         out, rc = run(["docker", "restart", "-t", "30", name], timeout=90)
         audit(who, ip, a, name, "ok" if rc == 0 else "failed")
         return {"done": rc == 0}
+    if a == "lockdown":
+        on = bool(body.get("on"))
+        msg = str(body.get("message") or "").strip()[:300]
+        if on and str(body.get("confirm", "")).strip().upper() != "LOCKDOWN":
+            raise ValueError("Type LOCKDOWN to shut the server down.")
+        if on == bool(state_read().get("lock")):
+            return {"state": state_public()}
+        state_write(lock=on, lock_msg=msg if on else "", lock_at=time.time() if on else 0)
+        audit(who, ip, a, ("on: " + msg) if on else "off")
+        threading.Thread(target=lockdown_apply if on else lockdown_lift, args=(who, ip), daemon=True).start()
+        return {"state": state_public()}
+    if a == "restart_all":
+        kind = body.get("kind")
+        if kind not in ("services", "server"):
+            raise ValueError("Pick services or the whole server.")
+        if str(body.get("confirm", "")).strip().upper() != "RESTART":
+            raise ValueError("Type RESTART to restart.")
+        if state_public()["restarting"]:
+            raise ValueError("A restart is already going.")
+        if state_read().get("lock"):
+            raise ValueError("Lockdown is on - turn it off first.")
+        now = time.time()
+        state_write(restart_kind=kind, restart_at=now, restart_until=now + (600 if kind == "server" else 420))
+        if kind == "server":
+            # 20 seconds' grace so every page picks up the restarting screen first
+            out, rc = run(["systemd-run", "--unit=hwl-admin-reboot", "--collect", "--on-active=20", "/usr/bin/systemctl", "reboot"], timeout=20)
+            if rc != 0:
+                state_write(restart_kind="", restart_until=0)
+                audit(who, ip, a, kind, "failed")
+                raise ValueError("Couldn't schedule the restart.")
+            audit(who, ip, a, kind, "in 20 s")
+        else:
+            threading.Thread(target=restart_services, args=(who, ip), daemon=True).start()
+            audit(who, ip, a, kind, "started")
+        return {"state": state_public()}
+    if a == "state":
+        return {"state": state_public()}
     if a == "mode":
         to = body.get("to")
         if to not in ("tick", "maint", "sleep", "deep", "wake"):
@@ -340,6 +463,15 @@ class H(BaseHTTPRequestHandler):
             return self.reply(500, {"error": "That didn't work: " + type(e).__name__})
 
     def do_GET(self):
+        if self.path.split("?")[0].rstrip("/") in ("/hwl-admin/state", "/state"):
+            b = json.dumps(state_public()).encode()   # public on purpose: every Launchpad page reads it
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            return self.wfile.write(b)
         self.reply(404, {"error": "Nothing here."})
 
     def log_message(self, *a):
@@ -347,4 +479,7 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    boot_clear()
+    if state_read().get("lock"):
+        threading.Thread(target=lockdown_apply, daemon=True).start()
     ThreadingHTTPServer((os.environ.get("HWL_BIND", "127.0.0.1"), int(os.environ.get("HWL_PORT", "8711"))), H).serve_forever()

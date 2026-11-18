@@ -37,12 +37,18 @@ say "settings"
 SECRET_FILE=/etc/chausima-suite.env
 [ -f $SECRET_FILE ] || { umask 077; echo "SSO_SECRET=$(openssl rand -hex 32)" > $SECRET_FILE; }
 SSO_SECRET=$(sed -n 's/^SSO_SECRET=//p' $SECRET_FILE)
+example() {   # $1 = config.example.js | infra.example.js -> stdout. Newer images keep them in config.local/
+  docker run --rm --entrypoint sh "$IMG" -c "cat /cryptpad/config.local/$1 2>/dev/null || cat /cryptpad/config/$1 2>/dev/null" && return 0
+  curl -fsSL "https://raw.githubusercontent.com/cryptpad/cryptpad/2026.10.1/config/$1"
+}
+[ -s $D/config/config.js ] || rm -f $D/config/config.js
+[ -s $D/config/infra.js ] || rm -f $D/config/infra.js
 if [ ! -f $D/config/config.js ]; then
-  docker run --rm --entrypoint cat "$IMG" /cryptpad/config/config.example.js > $D/config/config.js
+  example config.example.js > $D/config/config.js.new && [ -s $D/config/config.js.new ] && mv $D/config/config.js.new $D/config/config.js
   sed -i "s#installMethod: 'unspecified'#installMethod: 'docker-chausima'#; s#logToStdout: false#logToStdout: true#" $D/config/config.js
 fi
 if [ ! -f $D/config/infra.js ]; then
-  docker run --rm --entrypoint cat "$IMG" /cryptpad/config/infra.example.js > $D/config/infra.js
+  example infra.example.js > $D/config/infra.js.new && [ -s $D/config/infra.js.new ] && mv $D/config/infra.js.new $D/config/infra.js
   python3 - "$D/config/infra.js" "$MAIN" "$BOX" <<'P'
 import sys,re
 p,main,box=sys.argv[1:]; s=open(p).read()
