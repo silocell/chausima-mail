@@ -64,14 +64,21 @@ if arg == "--status":
     except Exception: r = {}
     print("recovery page:", "locked until unlocked here" if r.get("hard") else "locked for a bit" if float(r.get("locked_until") or 0) > time.time() else "open")
     sys.exit("entry: locked for %d more minutes" % (left // 60 + 1) if left > 0 else "entry: open")
+def ask(prompt):
+    """Shows what you type, then wipes that line off the screen when you press Enter."""
+    if not sys.stdin.isatty():
+        return getpass.getpass(prompt)
+    v = input(prompt)
+    sys.stdout.write("\033[1A\033[2K\r" + prompt + "(hidden)\n"); sys.stdout.flush()
+    return v
 rec = arg == "--recovery"
 target, need = (REC, 12) if rec else (PIN, 6)
-a = getpass.getpass(("New recovery passphrase (at least 12 characters, different from your admin code and passwords): " if rec else "New HWL Admin code (at least 6 characters, nothing you use anywhere else): "))
+a = ask(("New recovery passphrase (at least 12 characters, different from your admin code and passwords): " if rec else "New HWL Admin code (at least 6 characters, nothing you use anywhere else): "))
 if len(a) < need or len(a) > 128:
     sys.exit("It needs to be at least %d characters. Nothing changed." % need)
 if a.isdigit() and len(set(a)) <= 2 or a in ("123456", "654321", "1234567", "12345678", "000000", "password"):
     sys.exit("That code is too easy to guess. Nothing changed.")
-if getpass.getpass("Type it again: ") != a:
+if ask("Type it again: ") != a:
     sys.exit("They didn't match. Nothing changed.")
 salt = os.urandom(16)
 h = hashlib.scrypt(a.encode(), salt=salt, n=2 ** 14, r=8, p=1, dklen=32)
