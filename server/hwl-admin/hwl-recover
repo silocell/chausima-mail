@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Emergency fix-everything for HEH-Live, run from Oracle Cloud Shell when you're locked out of the sites:
+#   ssh -i ~/.ssh/heh-helper opc@140.238.91.12 'sudo hwl-recover'
+# Turns lockdown off, starts every stopped service, clears the admin-code lock and any restart screen,
+# restarts HWL Admin and the web server, then shows what's running. Safe to run any time; deletes nothing.
+[ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
+echo "== lockdown, restart screen, admin-code lock: off"
+python3 - <<'PY'
+import json, os
+p = "/var/lib/hwl-admin/state.json"
+try: s = json.load(open(p))
+except Exception: s = {}
+names = s.get("lock_stopped") or []
+s.update(lock=False, lock_msg="", lock_stopped=[], restart_kind="", restart_until=0)
+os.makedirs(os.path.dirname(p), exist_ok=True); json.dump(s, open(p, "w"))
+json.dump({"fails": [], "locked_until": 0}, open("/var/lib/hwl-admin/pin-guard.json", "w"))
+print("  was stopped by lockdown:", " ".join(names) or "nothing")
+PY
+echo "== starting every stopped service (old leftovers like stalwart-prev stay off)"
+for c in $(docker ps -a --filter status=exited --filter status=created --format '{{.Names}}' | grep -v -- '-prev$'); do
+  docker start "$c" >/dev/null && echo "  started $c"
+done
+echo "== HWL Admin and the web server"
+systemctl restart hwl-admin && echo "  HWL Admin restarted"
+systemctl reload caddy 2>/dev/null || systemctl restart caddy; echo "  web server: $(systemctl is-active caddy)"
+echo "== night timetable back in charge"
+/usr/local/bin/hwl-sleep tick >/dev/null 2>&1; /usr/local/bin/hwl-sleep now 2>/dev/null | head -2
+sleep 15
+echo "== now"
+docker ps --format '  {{.Names}}  {{.Status}}' | sort
+for u in https://hehs-live.duckdns.org/hwl-admin/state https://suite.chausima.com/ https://admin.chausima.com/; do
+  printf '  %-45s %s\n' "$u" "$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$u")"
+done
+echo "Done. If a site still won't open, screenshot this and send it to Claude."
