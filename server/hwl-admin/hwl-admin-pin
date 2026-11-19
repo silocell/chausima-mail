@@ -4,17 +4,36 @@
    sudo hwl-admin-pin --unlock clear the 30-minute lock after wrong codes
    sudo hwl-admin-pin --status show whether a code is set and whether entry is locked
    sudo hwl-admin-pin --recovery  set the passphrase for the emergency recovery page (/hwl-admin/recover)
+   sudo hwl-admin-pin --runner    make a new secret address for the emergency command page (old one stops working)
+   sudo hwl-admin-pin --runner-show   show the secret address again
+   sudo hwl-admin-pin --runner-off    switch the emergency command page off
 Only a scrambled scrypt hash is kept, in /etc/hwl-admin/pin (root only). Changing it signs every admin out."""
 import base64, getpass, hashlib, json, os, subprocess, sys, time
 PIN, GUARD = "/etc/hwl-admin/pin", "/var/lib/hwl-admin/pin-guard.json"
 REC, REC_GUARD = "/etc/hwl-admin/recover", "/var/lib/hwl-admin/recover-guard.json"
+RUNNER, EM_GUARD = "/etc/hwl-admin/runner-path", "/var/lib/hwl-emergency/guard.json"
+URL = "https://hehs-live.duckdns.org/hwl-emergency/"
 if os.geteuid() != 0:
     sys.exit("Run it with sudo: sudo hwl-admin-pin")
 arg = (sys.argv[1:] or [""])[0]
 if arg == "--unlock":
     os.makedirs(os.path.dirname(GUARD), exist_ok=True)
     json.dump({"fails": [], "locked_until": 0}, open(GUARD, "w")); json.dump({}, open(REC_GUARD, "w"))
-    sys.exit("Admin code entry and the recovery page are unlocked.")
+    os.makedirs(os.path.dirname(EM_GUARD), exist_ok=True); json.dump({"wrong": 0, "locked_until": 0}, open(EM_GUARD, "w"))
+    sys.exit("Admin code entry, the recovery page and the emergency command page are unlocked.")
+if arg in ("--runner", "--runner-show", "--runner-off"):
+    import secrets, string
+    if arg == "--runner-off":
+        try: os.remove(RUNNER)
+        except FileNotFoundError: pass
+        sys.exit("Emergency command page switched off. Turn it back on with: sudo hwl-admin-pin --runner")
+    if arg == "--runner" or not os.path.exists(RUNNER):
+        p = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(24))
+        os.makedirs(os.path.dirname(RUNNER), exist_ok=True)
+        fd = os.open(RUNNER + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); os.write(fd, (p + "\n").encode()); os.close(fd)
+        os.replace(RUNNER + ".tmp", RUNNER)
+    print("Emergency command page (keep this address private, don't screenshot it):")
+    sys.exit(URL + open(RUNNER).read().strip())
 if arg == "--status":
     try: g = json.load(open(GUARD))
     except Exception: g = {}

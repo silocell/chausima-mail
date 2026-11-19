@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>HEH-Live emergency</title>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--ink:#13161b;--soft:#5b6270;--line:#d9dee6;--go:#1f4fd8;--bad:#c2312b;--term:#0d1117;--termink:#d6e2ee;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1014;--card:#171a20;--ink:#eceef2;--soft:#a0a7b4;--line:#2a2f39;--go:#7d9cf5;--bad:#f2766f;color-scheme:dark}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.35rem;margin:0 0 2px}h2{font-size:1.05rem;margin:0 0 10px}
+.s{color:var(--soft);margin:0 0 16px;font-size:.92rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+label{display:block;font-weight:600;font-size:.9rem;margin:10px 0 6px}
+input,textarea{width:100%;font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+textarea{min-height:64px;resize:vertical}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88rem}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+button{font:inherit;font-weight:600;border-radius:10px;padding:9px 14px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.go{background:var(--go);border-color:var(--go);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--go);outline-offset:2px}
+.bad{color:var(--bad)}
+pre.out{background:var(--term);color:var(--termink);border-radius:12px;padding:12px;margin:10px 0 0;max-height:420px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.grid{display:grid;gap:14px}
+@media (min-width:860px){.grid{grid-template-columns:1fr 1fr}}
+.chat{max-height:460px;overflow:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.msg{padding:10px 12px;border-radius:12px;font-size:.93rem;white-space:pre-wrap;word-break:break-word}
+.me{background:var(--bg);align-self:flex-end;max-width:90%}
+.ai{border:1px solid var(--line)}
+.ai pre{background:var(--term);color:var(--termink);padding:8px 10px;border-radius:8px;margin:6px 0;white-space:pre-wrap}
+.ai .use{font-size:.8rem;padding:4px 10px;margin:0 0 6px}
+.timer{font-size:.85rem;color:var(--soft)}
+</style>
+</head>
+<body>
+<main>
+  <h1>HEH-Live emergency</h1>
+  <p class="s">Run commands on the server, with an AI that knows it. Keep this address private.</p>
+
+  <div class="card" id="signin">
+    <h2>Sign in</h2>
+    <label for="pw">Recovery passphrase</label>
+    <input id="pw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="128">
+    <label for="code">Admin code</label>
+    <input id="code" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64">
+    <div class="row"><button class="go" id="go" type="button">Sign in</button></div>
+    <p id="smsg" role="alert" style="min-height:1.4em;margin:10px 0 0"></p>
+    <p class="s" style="margin:6px 0 0">Two wrong tries in a row lock this page for 16 hours.</p>
+  </div>
+
+  <div id="app" hidden>
+    <div class="row" style="margin:0 0 12px"><span class="timer" id="timer"></span><button type="button" id="out">Sign out</button></div>
+    <div class="grid">
+      <div class="card">
+        <h2>Run a command</h2>
+        <div class="row" id="quick" style="margin-top:0">
+          <button type="button" data-q="hwl-recover">Fix everything</button>
+          <button type="button" data-q="docker ps --format '{{.Names}}  {{.Status}}'">What's running</button>
+          <button type="button" data-q="cat /var/lib/hwl-admin/state.json; echo; hwl-sleep now">Lockdown and sleep</button>
+          <button type="button" data-q="tail -15 /var/log/hwl-admin.log | cut -c1-220">Last actions</button>
+        </div>
+        <label for="cmd">Command (runs as root, stops after 60 seconds)</label>
+        <textarea id="cmd" class="mono" spellcheck="false" autocapitalize="off"></textarea>
+        <div class="row"><button class="go" id="run" type="button">Run</button><span class="timer" id="rc"></span></div>
+        <pre class="out mono" id="term" hidden></pre>
+      </div>
+      <div class="card">
+        <h2>Ask the AI</h2>
+        <div class="chat" id="chat" aria-live="polite"></div>
+        <label for="q" class="s" style="margin:0 0 6px;font-weight:400">It sees what's running right now. It only suggests: you choose what to run.</label>
+        <textarea id="q" placeholder="For example: every Launchpad page says lockdown is on"></textarea>
+        <div class="row"><button class="go" id="ask" type="button">Ask</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var base = location.pathname.replace(/\/+$/, ""), tok = null, until = 0, hist = [], tick = null;
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function post(what, body) {
+    return fetch(base + "/" + what, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return { error: "The server didn't answer properly." }; }); })
+      .catch(function () { return { error: "Couldn't reach the server." }; });
+  }
+  function signedOut(msg) {
+    tok = null; clearInterval(tick); $("app").hidden = true; $("signin").hidden = false;
+    $("smsg").className = msg ? "bad" : ""; $("smsg").textContent = msg || ""; $("pw").focus();
+  }
+  function check(j) { if (j && j.signin) { signedOut(j.error); return false; } return true; }
+  $("go").onclick = function () {
+    var pw = $("pw").value, code = $("code").value;
+    if (!pw || !code) { $("smsg").className = "bad"; $("smsg").textContent = "Type both the passphrase and the code."; return; }
+    this.disabled = true; $("smsg").className = ""; $("smsg").textContent = "Checking…";
+    var b = this;
+    post("login", { pw: pw, code: code }).then(function (j) {
+      b.disabled = false; $("pw").value = ""; $("code").value = "";
+      if (!j.tok) { $("smsg").className = "bad"; $("smsg").textContent = j.error || "That didn't work."; return; }
+      tok = j.tok; until = Date.now() + j.minutes * 60000;
+      $("signin").hidden = true; $("app").hidden = false; $("cmd").focus();
+      tick = setInterval(function () {
+        var s = Math.max(0, Math.round((until - Date.now()) / 1000));
+        $("timer").textContent = "Signed in · " + Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2) + " left";
+        if (!s) signedOut("Signed out after 10 minutes.");
+      }, 1000);
+    });
+  };
+  ["pw", "code"].forEach(function (id) { $(id).addEventListener("keydown", function (e) { if (e.key === "Enter") $("go").click(); }); });
+  $("out").onclick = function () { signedOut(""); };
+  $("quick").onclick = function (e) { var b = e.target.closest("[data-q]"); if (b) { $("cmd").value = b.dataset.q; $("cmd").focus(); } };
+  $("run").onclick = function () {
+    var c = $("cmd").value.trim(); if (!c || !tok) return;
+    var b = this; b.disabled = true; $("rc").textContent = "Running…"; $("term").hidden = false; $("term").textContent = "$ " + c + "\n";
+    post("run", { tok: tok, cmd: c }).then(function (j) {
+      b.disabled = false; if (!check(j)) return;
+      if (j.error) { $("rc").textContent = ""; $("term").textContent += j.error; return; }
+      $("term").textContent += j.out || "(no output)"; $("rc").textContent = j.rc === 0 ? "Done" : "Finished with code " + j.rc;
+    });
+  };
+  $("cmd").addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("run").click(); });
+  function bubble(role, text) {
+    var d = document.createElement("div"); d.className = "msg " + (role === "user" ? "me" : "ai");
+    if (role === "user") d.textContent = text;
+    else d.innerHTML = esc(text).replace(/```(?:\w+)?\n?([\s\S]*?)```/g, function (m, code) {
+      return '<pre class="mono">' + code.replace(/\n$/, "") + '</pre><button type="button" class="use">Put in the command box</button>';
+    }).replace(/`([^`\n]+)`/g, '<code class="mono">$1</code>');
+    $("chat").appendChild(d); $("chat").scrollTop = $("chat").scrollHeight; return d;
+  }
+  $("chat").onclick = function (e) {
+    var b = e.target.closest(".use"); if (!b) return;
+    var pre = b.previousElementSibling; $("cmd").value = pre.textContent; $("cmd").focus();
+  };
+  $("ask").onclick = function () {
+    var q = $("q").value.trim(); if (!q || !tok) return;
+    hist.push({ role: "user", content: q }); bubble("user", q); $("q").value = "";
+    var b = this; b.disabled = true; var wait = bubble("assistant", "Thinking… (it's checking the server first)");
+    post("ask", { tok: tok, history: hist }).then(function (j) {
+      b.disabled = false; wait.remove(); if (!check(j)) return;
+      var a = j.answer || j.error || "No answer."; hist.push({ role: "assistant", content: a }); bubble("assistant", a);
+    });
+  };
+  $("q").addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("ask").click(); } });
+  $("pw").focus();
+})();
+</script>
+</body>
+</html>
