@@ -3,33 +3,43 @@
    sudo hwl-admin-pin          set or change the code (asked twice, never shown)
    sudo hwl-admin-pin --unlock clear the 30-minute lock after wrong codes
    sudo hwl-admin-pin --status show whether a code is set and whether entry is locked
+   sudo hwl-admin-pin --recovery  set the passphrase for the emergency recovery page (/hwl-admin/recover)
 Only a scrambled scrypt hash is kept, in /etc/hwl-admin/pin (root only). Changing it signs every admin out."""
 import base64, getpass, hashlib, json, os, subprocess, sys, time
 PIN, GUARD = "/etc/hwl-admin/pin", "/var/lib/hwl-admin/pin-guard.json"
+REC, REC_GUARD = "/etc/hwl-admin/recover", "/var/lib/hwl-admin/recover-guard.json"
 if os.geteuid() != 0:
     sys.exit("Run it with sudo: sudo hwl-admin-pin")
 arg = (sys.argv[1:] or [""])[0]
 if arg == "--unlock":
-    os.makedirs(os.path.dirname(GUARD), exist_ok=True); json.dump({"fails": [], "locked_until": 0}, open(GUARD, "w"))
-    sys.exit("Code entry unlocked.")
+    os.makedirs(os.path.dirname(GUARD), exist_ok=True)
+    json.dump({"fails": [], "locked_until": 0}, open(GUARD, "w")); json.dump({}, open(REC_GUARD, "w"))
+    sys.exit("Admin code entry and the recovery page are unlocked.")
 if arg == "--status":
     try: g = json.load(open(GUARD))
     except Exception: g = {}
     left = float(g.get("locked_until") or 0) - time.time()
-    print("code set:", "yes" if os.path.exists(PIN) else "no")
+    print("code set:", "yes" if os.path.exists(PIN) else "no", "| recovery passphrase set:", "yes" if os.path.exists(REC) else "no")
+    try: r = json.load(open(REC_GUARD))
+    except Exception: r = {}
+    print("recovery page:", "locked until unlocked here" if r.get("hard") else "locked for a bit" if float(r.get("locked_until") or 0) > time.time() else "open")
     sys.exit("entry: locked for %d more minutes" % (left // 60 + 1) if left > 0 else "entry: open")
-a = getpass.getpass("New HWL Admin code (at least 6 characters, nothing you use anywhere else): ")
-if len(a) < 6 or len(a) > 64:
-    sys.exit("It needs to be 6 to 64 characters. Nothing changed.")
+rec = arg == "--recovery"
+target, need = (REC, 12) if rec else (PIN, 6)
+a = getpass.getpass(("New recovery passphrase (at least 12 characters, different from your admin code and passwords): " if rec else "New HWL Admin code (at least 6 characters, nothing you use anywhere else): "))
+if len(a) < need or len(a) > 128:
+    sys.exit("It needs to be at least %d characters. Nothing changed." % need)
 if a.isdigit() and len(set(a)) <= 2 or a in ("123456", "654321", "1234567", "12345678", "000000", "password"):
     sys.exit("That code is too easy to guess. Nothing changed.")
 if getpass.getpass("Type it again: ") != a:
     sys.exit("They didn't match. Nothing changed.")
 salt = os.urandom(16)
 h = hashlib.scrypt(a.encode(), salt=salt, n=2 ** 14, r=8, p=1, dklen=32)
-os.makedirs(os.path.dirname(PIN), exist_ok=True); os.chmod(os.path.dirname(PIN), 0o700)
-fd = os.open(PIN + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+os.makedirs(os.path.dirname(target), exist_ok=True); os.chmod(os.path.dirname(target), 0o700)
+fd = os.open(target + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
 os.write(fd, ("scrypt$%s$%s\n" % (base64.b64encode(salt).decode(), base64.b64encode(h).decode())).encode()); os.close(fd)
-os.replace(PIN + ".tmp", PIN)
+os.replace(target + ".tmp", target)
+if rec:
+    sys.exit("Recovery passphrase saved. The page is at https://hehs-live.duckdns.org/hwl-admin/recover")
 subprocess.run(["systemctl", "restart", "hwl-admin"])
 print("Admin code saved. HWL Admin restarted, so every admin has to enter the new code.")

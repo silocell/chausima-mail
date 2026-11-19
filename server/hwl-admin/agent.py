@@ -247,6 +247,108 @@ def pin_unlock(pin, who, ip):
         raise PinNeeded("Wrong code. One more wrong code within a minute locks it for 30 minutes.")
 
 
+# ---------- Emergency recovery page (/hwl-admin/recover): for when Shiv can't use Cloud Shell or his phone ----------
+# It can only make things work again (status, fix everything, read the log). No lockdown-on, restart or delete,
+# so even a stolen passphrase can't break anything. Its own passphrase: sudo hwl-admin-pin --recovery
+# 2 wrong in a minute -> locked 30 minutes; 6 wrong in a day -> locked until sudo hwl-admin-pin --unlock.
+REC_FILE = os.environ.get("HWL_REC_FILE", "/etc/hwl-admin/recover")
+REC_GUARD = os.environ.get("HWL_REC_GUARD", "/var/lib/hwl-admin/recover-guard.json")
+
+
+def rec_check(pw, ip):
+    with PIN_LOCK:
+        try:
+            g = json.load(open(REC_GUARD))
+        except (OSError, ValueError):
+            g = {}
+        now = time.time()
+        if g.get("hard"):
+            audit("recover", ip, "recover_page", "tried while locked", "refused")
+            raise PinNeeded("This page is locked after too many wrong passphrases. Unlock it from the server: sudo hwl-admin-pin --unlock")
+        if now < float(g.get("locked_until") or 0):
+            mins = int((float(g["locked_until"]) - now) // 60) + 1
+            audit("recover", ip, "recover_page", "tried while locked", "refused")
+            raise PinNeeded("Locked after wrong passphrases. Try again in %d minute%s." % (mins, "" if mins == 1 else "s"))
+        try:
+            kind, salt, want = open(REC_FILE).read().strip().split("$")
+        except (OSError, ValueError):
+            raise PinNeeded("No recovery passphrase is set. Set one on the server: sudo hwl-admin-pin --recovery")
+        if kind == "scrypt" and hmac.compare_digest(pin_hash(str(pw or "")[:128], base64.b64decode(salt)), base64.b64decode(want)):
+            g.update(fails=[], locked_until=0)
+            write_json(REC_GUARD, g)
+            return
+        fails = [t for t in (g.get("fails") or []) if now - float(t) < 60] + [now]
+        day = [t for t in (g.get("day") or []) if now - float(t) < 86400] + [now]
+        g.update(fails=fails, day=day)
+        msg = "Wrong passphrase. One more within a minute locks this page for 30 minutes."
+        if len(day) >= 6:
+            g.update(hard=True, fails=[])
+            msg = "Wrong passphrase. That's 6 today, so this page is locked until it's unlocked from the server."
+        elif len(fails) >= 2:
+            g.update(locked_until=now + LOCK_SECS, fails=[])
+            msg = "Wrong passphrase. That's 2 in a minute, so this page is locked for 30 minutes."
+        write_json(REC_GUARD, g)
+        audit("recover", ip, "recover_page", "wrong passphrase", "refused")
+        raise PinNeeded(msg)
+
+
+def write_json(path, obj):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".tmp", "w") as f:
+        json.dump(obj, f)
+    os.replace(path + ".tmp", path)
+
+
+def rec_status():
+    st = state_public()
+    out, _ = run(["docker", "ps", "-a", "--format", "{{.Names}}\t{{.State}}"], timeout=20)
+    rows = [l.split("\t") for l in out.splitlines() if "\t" in l and not l.split("\t")[0].endswith("-prev")]
+    down = [n for n, s in rows if s != "running"]
+    return {"lock": st["lock"], "restarting": st["restarting"], "running": len(rows) - len(down), "total": len(rows), "down": down}
+
+
+def rec_log():
+    try:
+        lines = open(LOG).read().splitlines()[-40:]
+    except OSError:
+        return []
+    keep = []
+    for l in lines:
+        try:
+            o = json.loads(l)
+        except ValueError:
+            continue
+        keep.append({k: str(o.get(k, ""))[:80] for k in ("at", "who", "ip", "action", "detail", "result")})
+    return keep[::-1]
+
+
+RECOVER_PAGE = """<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>HEH-Live recovery</title><style>
+:root{--bg:#f4f5f7;--card:#fff;--ink:#14161a;--soft:#5d6470;--line:#dde1e7;--go:#1f4fd8;--bad:#c2312b;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--soft:#a1a7b3;--line:#2a2f39;--go:#7d9cf5;--bad:#f2766f;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:620px;margin:0 auto;padding:24px 16px 48px}h1{font-size:1.4rem;margin:0 0 4px}p.s{color:var(--soft);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+input{width:100%;font:inherit;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}button{font:inherit;font-weight:600;border-radius:10px;padding:10px 14px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.go{background:var(--go);border-color:var(--go);color:#fff}button:disabled{opacity:.5}button:focus-visible,input:focus-visible{outline:3px solid var(--go);outline-offset:2px}
+#msg{min-height:1.5em;margin-top:10px}#msg.bad{color:var(--bad)}table{width:100%;border-collapse:collapse;font-size:.82rem}td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top;word-break:break-word}
+</style></head><body><main><h1>HEH-Live recovery</h1><p class="s">For when the Launchpad or HWL Admin can't be reached. This page can only switch things back on.</p>
+<div class="card"><label for="pw"><b>Recovery passphrase</b></label><input id="pw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="128">
+<div class="row"><button type="button" data-a="status">Check status</button><button type="button" class="go" data-a="fix">Fix everything</button><button type="button" data-a="log">See who did what</button></div>
+<div id="msg" role="status"></div><p class="s" style="margin:8px 0 0;font-size:.85rem">2 wrong passphrases within a minute lock this page for 30 minutes; 6 in a day lock it until it's unlocked from the server.</p></div>
+<div id="out"></div></main><script>
+var busy=false;function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+document.querySelector(".row").onclick=function(e){var b=e.target.closest("[data-a]");if(!b||busy)return;var pw=document.getElementById("pw").value;
+var m=document.getElementById("msg"),o=document.getElementById("out");if(!pw){m.className="bad";m.textContent="Type the recovery passphrase first.";return}
+busy=true;m.className="";m.textContent="Working…";fetch(location.pathname,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({pw:pw,a:b.dataset.a})})
+.then(function(r){return r.json()}).then(function(j){busy=false;if(j.error){m.className="bad";m.textContent=j.error;return}m.textContent=j.msg||"";
+if(j.status){var s=j.status;o.innerHTML='<div class="card"><b>'+(s.lock?"🔒 Lockdown is ON":s.restarting?"↻ Restarting":"✅ No lockdown")+'</b><br>Services running: '+s.running+' of '+s.total+(s.down.length?'<br>Down: '+esc(s.down.join(", ")):"")+'</div>'}
+if(j.log){o.innerHTML='<div class="card"><b>Last HWL Admin actions (newest first, UK time)</b><table>'+j.log.map(function(x){return"<tr><td>"+esc(x.at)+"</td><td>"+esc(x.who)+"<br>"+esc(x.ip)+"</td><td>"+esc(x.action)+" "+esc(x.detail)+" <i>"+esc(x.result)+"</i></td></tr>"}).join("")+"</table></div>"}
+}).catch(function(){busy=false;m.className="bad";m.textContent="Couldn't reach the server."})};
+</script></body></html>"""
+
+
 def unlock_ok(tok, who):
     try:
         b64, sig = tok.split(".")
@@ -555,6 +657,25 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         ip = (self.headers.get("X-Forwarded-For") or self.client_address[0]).split(",")[0].strip()
+        if self.path.split("?")[0].rstrip("/") in ("/hwl-admin/recover", "/recover"):
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(min(n, 2000)) or b"{}")
+                rec_check(body.get("pw"), ip)
+            except PinNeeded as e:
+                return self.reply(403, {"error": str(e)})
+            except Exception:
+                return self.reply(400, {"error": "Bad request."})
+            what = body.get("a")
+            if what == "log":
+                audit("recover", ip, "recover_page", "read the log")
+                return self.reply(200, {"log": rec_log()})
+            if what == "fix":
+                audit("recover", ip, "recover_page", "fix everything")
+                # runs detached: it restarts this agent too
+                run(["systemd-run", "--unit=hwl-recover-web", "--collect", "/usr/local/sbin/hwl-recover"], timeout=20)
+                return self.reply(200, {"msg": "Fixing everything now. Give it about a minute, then press Check status."})
+            return self.reply(200, {"status": rec_status()})
         if self.path.rstrip("/") not in ("/hwl-admin/api", "/api"):
             return self.reply(404, {"error": "Nothing here."})
         try:
@@ -585,6 +706,16 @@ class H(BaseHTTPRequestHandler):
             return self.reply(500, {"error": "That didn't work: " + type(e).__name__})
 
     def do_GET(self):
+        if self.path.split("?")[0].rstrip("/") in ("/hwl-admin/recover", "/recover"):
+            b = RECOVER_PAGE.encode()
+            self.send_response(200)
+            for k, v in (("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store"), ("X-Frame-Options", "DENY"),
+                         ("X-Robots-Tag", "noindex, nofollow"), ("Referrer-Policy", "no-referrer"),
+                         ("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'")):
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            return self.wfile.write(b)
         if self.path.split("?")[0].rstrip("/") in ("/hwl-admin/state", "/state"):
             b = json.dumps(state_public()).encode()   # public on purpose: every Launchpad page reads it
             self.send_response(200)
