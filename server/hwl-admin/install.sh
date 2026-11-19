@@ -9,6 +9,7 @@ HERE=$(cd "$(dirname "$0")" && pwd); CF=/etc/caddy/Caddyfile
 sudo install -D -m 700 "$HERE/agent.py" /usr/local/lib/hwl-admin/agent.py
 sudo install -D -m 700 "$HERE/hwl-admin-pin" /usr/local/sbin/hwl-admin-pin
 sudo install -D -m 700 "$HERE/hwl-recover" /usr/local/sbin/hwl-recover
+sudo ln -sf /usr/local/sbin/hwl-admin-pin /usr/bin/hwl-admin-pin; sudo ln -sf /usr/local/sbin/hwl-recover /usr/bin/hwl-recover   # sudo on Oracle Linux skips /usr/local/sbin
 sudo touch /var/log/hwl-admin.log; sudo chmod 600 /var/log/hwl-admin.log 2>/dev/null || true; sudo chattr +a /var/log/hwl-admin.log 2>/dev/null || true   # already append-only on a re-run: fine
 sudo tee /etc/systemd/system/hwl-admin.service >/dev/null <<'U'
 [Unit]
