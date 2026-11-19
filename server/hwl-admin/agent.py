@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 os.environ["TZ"] = "Europe/London"
 time.tzset()
-ADMINS = {"shiv@chausima.com", "shivkforindia@gmail.com"}
+ADMINS = {"shivkforindia@gmail.com"}  # shiv@chausima.com removed after the 19 Nov break-in; add back once it is secured
 ORIGINS = {"https://admin.chausima.com", "https://maintenance.civilinitiatives.org", "https://civilinitiatives.org"}
 SB = os.environ.get("HWL_SB", "/home/opc/supabase")
 LOG = os.environ.get("HWL_LOG", "/var/log/hwl-admin.log")
@@ -181,6 +181,80 @@ def check_token(tok):
 def run(cmd, timeout=30):
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     return r.stdout.strip(), r.returncode
+
+
+# ---------- Admin code: a secret only Shiv knows, asked for after signing in ----------
+# Set on the server with: sudo hwl-admin-pin   (only a scrambled scrypt hash is stored, root-only)
+# Two wrong codes within one minute lock code entry for 30 minutes (kept on disk, so a restart doesn't reset it).
+PIN_FILE = os.environ.get("HWL_PIN_FILE", "/etc/hwl-admin/pin")
+GUARD = os.environ.get("HWL_PIN_GUARD", "/var/lib/hwl-admin/pin-guard.json")
+UNLOCK_KEY = os.urandom(32)          # new every start: restarting the agent asks everyone for the code again
+UNLOCK_SECS = 30 * 60
+LOCK_SECS = 30 * 60
+PIN_LOCK = threading.Lock()
+
+
+class PinNeeded(Exception):
+    pass
+
+
+def pin_hash(pin, salt):
+    return hashlib.scrypt(pin.encode(), salt=salt, n=2 ** 14, r=8, p=1, dklen=32)
+
+
+def pin_check(pin):
+    try:
+        kind, salt, want = open(PIN_FILE).read().strip().split("$")
+    except (OSError, ValueError):
+        raise PinNeeded("No admin code is set yet. Set one on the server with: sudo hwl-admin-pin")
+    return kind == "scrypt" and hmac.compare_digest(pin_hash(pin, base64.b64decode(salt)), base64.b64decode(want))
+
+
+def guard_read():
+    try:
+        return json.load(open(GUARD))
+    except (OSError, ValueError):
+        return {}
+
+
+def guard_write(g):
+    os.makedirs(os.path.dirname(GUARD), exist_ok=True)
+    with open(GUARD + ".tmp", "w") as f:
+        json.dump(g, f)
+    os.replace(GUARD + ".tmp", GUARD)
+
+
+def pin_unlock(pin, who, ip):
+    with PIN_LOCK:
+        g, now = guard_read(), time.time()
+        if now < float(g.get("locked_until") or 0):
+            mins = int((float(g["locked_until"]) - now) // 60) + 1
+            audit(who, ip, "admin_code", "tried while locked", "refused")
+            raise PinNeeded("Code entry is locked after wrong codes. Try again in %d minute%s." % (mins, "" if mins == 1 else "s"))
+        if pin_check(str(pin or "")[:64]):
+            guard_write({"fails": [], "locked_until": 0})
+            audit(who, ip, "admin_code", "", "ok")
+            exp = int(now + UNLOCK_SECS)
+            msg = ("%s|%d" % (who, exp)).encode()
+            return base64.urlsafe_b64encode(msg).decode() + "." + hmac.new(UNLOCK_KEY, msg, hashlib.sha256).hexdigest()
+        fails = [t for t in (g.get("fails") or []) if now - float(t) < 60] + [now]
+        if len(fails) >= 2:
+            guard_write({"fails": [], "locked_until": now + LOCK_SECS})
+            audit(who, ip, "admin_code", "2 wrong in a minute: locked 30 min", "refused")
+            raise PinNeeded("Wrong code. That's 2 wrong in a minute, so code entry is locked for 30 minutes.")
+        guard_write({"fails": fails, "locked_until": 0})
+        audit(who, ip, "admin_code", "wrong code", "refused")
+        raise PinNeeded("Wrong code. One more wrong code within a minute locks it for 30 minutes.")
+
+
+def unlock_ok(tok, who):
+    try:
+        b64, sig = tok.split(".")
+        msg = base64.urlsafe_b64decode(b64.encode())
+        email, exp = msg.decode().rsplit("|", 1)
+    except (ValueError, UnicodeDecodeError, base64.binascii.Error):
+        return False
+    return hmac.compare_digest(sig, hmac.new(UNLOCK_KEY, msg, hashlib.sha256).hexdigest()) and email == who and time.time() < int(exp)
 
 
 def audit(who, ip, action, detail="", result="ok"):
@@ -461,7 +535,7 @@ class H(BaseHTTPRequestHandler):
         if o in ORIGINS:
             self.send_header("Access-Control-Allow-Origin", o)
             self.send_header("Vary", "Origin")
-            self.send_header("Access-Control-Allow-Headers", "authorization, content-type")
+            self.send_header("Access-Control-Allow-Headers", "authorization, content-type, x-hwl-unlock")
             self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
 
     def reply(self, code, obj):
@@ -495,6 +569,13 @@ class H(BaseHTTPRequestHandler):
             if tok:
                 audit("?", ip, "refused", str(body.get("action", ""))[:40], str(e))
             return self.reply(403, {"error": str(e)})
+        if body.get("action") == "unlock":
+            try:
+                return self.reply(200, {"unlock": pin_unlock(body.get("code"), who, ip), "minutes": UNLOCK_SECS // 60})
+            except PinNeeded as e:
+                return self.reply(403, {"error": str(e), "pin": True})
+        if not unlock_ok((self.headers.get("X-HWL-Unlock") or "").strip(), who):
+            return self.reply(403, {"error": "Enter your admin code.", "pin": True})
         try:
             return self.reply(200, act(body, who, ip))
         except ValueError as e:
