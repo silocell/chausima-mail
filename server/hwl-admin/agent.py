@@ -14,7 +14,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 os.environ["TZ"] = "Europe/London"
 time.tzset()
-ADMINS = {"shivkforindia@gmail.com"}  # shiv@chausima.com removed after the 19 Nov break-in; add back once it is secured
+ADMINS_FILE = os.environ.get("HWL_ADMINS_FILE", "/etc/hwl-admin/admins")   # one address per line: sudo hwl-admin-pin --add-admin
+DEFAULT_ADMINS = {"shivkforindia@gmail.com"}  # used only if that file is missing (shiv@chausima.com was removed after the 19 Nov break-in)
+
+
+def admins():
+    """Read fresh every time, so adding or removing an admin works straight away. Every admin still needs the admin code."""
+    try:
+        got = {l.strip().lower() for l in open(ADMINS_FILE) if "@" in l and not l.strip().startswith("#")}
+        return got or DEFAULT_ADMINS
+    except OSError:
+        return DEFAULT_ADMINS
 ORIGINS = {"https://admin.chausima.com", "https://maintenance.civilinitiatives.org", "https://civilinitiatives.org"}
 SB = os.environ.get("HWL_SB", "/home/opc/supabase")
 LOG = os.environ.get("HWL_LOG", "/var/log/hwl-admin.log")
@@ -161,7 +171,7 @@ def check_token(tok):
     if claims.get("exp", 0) < time.time() or claims.get("role") != "authenticated":
         raise PermissionError("Your sign-in has expired. Sign in again.")
     email = str(claims.get("email", "")).lower()
-    if email not in ADMINS:
+    if email not in admins():
         raise PermissionError("HWL Admin isn't for this account.")
     # still a live sign-in? (catches signed-out or deleted accounts)
     req = urllib.request.Request(GOTRUE + "/auth/v1/user", headers={"apikey": anon, "Authorization": "Bearer " + tok})
@@ -447,7 +457,7 @@ def delete_user(uid, confirm, who):
         raise ValueError("That account isn't there any more.")
     if (confirm or "").strip().lower() != (target["email"] or "").lower():
         raise ValueError("Type the account's email exactly to confirm.")
-    if (target["email"] or "").lower() in ADMINS:
+    if (target["email"] or "").lower() in admins():
         raise ValueError("HWL Admin accounts can't be deleted from here.")
     _, _, svc = secrets()
     req = urllib.request.Request(GOTRUE + "/auth/v1/admin/users/" + uid, method="DELETE",

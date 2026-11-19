@@ -2,6 +2,19 @@
 # Installs the chausima-login function (Sign in with Chausima). Safe to re-run.
 set -e
 SB=/home/opc/supabase; HERE="$(cd "$(dirname "$0")" && pwd)"
+# wrong-password counts live in the database so they survive restarts (only the service role can see them)
+docker exec -i supabase-db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+create table if not exists public.login_tries (id bigserial primary key, account text not null, ip text not null, at timestamptz not null default now());
+create index if not exists login_tries_account_at on public.login_tries (account, at);
+create index if not exists login_tries_ip_at on public.login_tries (ip, at);
+create index if not exists login_tries_at on public.login_tries (at);
+alter table public.login_tries enable row level security;
+revoke all on public.login_tries from anon, authenticated, public;
+grant all on public.login_tries to service_role;
+grant usage, select on sequence public.login_tries_id_seq to service_role;
+delete from public.login_tries where at < now() - interval '7 days';
+SQL
+echo "wrong-password counter: ready"
 mkdir -p $SB/volumes/functions/chausima-login
 install -m 644 "$HERE/chausima-login/index.ts" $SB/volumes/functions/chausima-login/index.ts
 chown -R opc:opc $SB/volumes/functions/chausima-login

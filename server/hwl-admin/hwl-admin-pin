@@ -7,6 +7,8 @@
    sudo hwl-admin-pin --runner    make a new secret address for the emergency command page (old one stops working)
    sudo hwl-admin-pin --runner-show   show the secret address again
    sudo hwl-admin-pin --runner-off    switch the emergency command page off
+   sudo hwl-admin-pin --admins        list who can use HWL Admin (everyone still needs the admin code)
+   sudo hwl-admin-pin --add-admin name@example.com   /   --remove-admin name@example.com
 Only a scrambled scrypt hash is kept, in /etc/hwl-admin/pin (root only). Changing it signs every admin out."""
 import base64, getpass, hashlib, json, os, subprocess, sys, time
 PIN, GUARD = "/etc/hwl-admin/pin", "/var/lib/hwl-admin/pin-guard.json"
@@ -21,6 +23,25 @@ if arg == "--unlock":
     json.dump({"fails": [], "locked_until": 0}, open(GUARD, "w")); json.dump({}, open(REC_GUARD, "w"))
     os.makedirs(os.path.dirname(EM_GUARD), exist_ok=True); json.dump({"wrong": 0, "locked_until": 0}, open(EM_GUARD, "w"))
     sys.exit("Admin code entry, the recovery page and the emergency command page are unlocked.")
+ADM = "/etc/hwl-admin/admins"
+if arg in ("--admins", "--add-admin", "--remove-admin"):
+    import re
+    try: cur = [l.strip().lower() for l in open(ADM) if "@" in l and not l.strip().startswith("#")]
+    except FileNotFoundError: cur = ["shivkforindia@gmail.com"]
+    if arg != "--admins":
+        who = (sys.argv[2:] or [""])[0].strip().lower()
+        if not re.fullmatch(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", who):
+            sys.exit("Give an email address, like: sudo hwl-admin-pin " + arg + " name@example.com")
+        if arg == "--add-admin" and who not in cur: cur.append(who)
+        if arg == "--remove-admin":
+            if who not in cur: sys.exit(who + " isn't an admin.")
+            if len(cur) == 1: sys.exit("That's the last admin, so it stays. Add another one first.")
+            cur.remove(who)
+        os.makedirs(os.path.dirname(ADM), exist_ok=True)
+        fd = os.open(ADM + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.write(fd, ("# HWL Admin admins, one per line. Every admin still needs the admin code.\n" + "\n".join(cur) + "\n").encode()); os.close(fd)
+        os.replace(ADM + ".tmp", ADM)
+    sys.exit("HWL Admin admins (each needs the admin code too):\n  " + "\n  ".join(cur))
 if arg in ("--runner", "--runner-show", "--runner-off"):
     import secrets, string
     if arg == "--runner-off":
